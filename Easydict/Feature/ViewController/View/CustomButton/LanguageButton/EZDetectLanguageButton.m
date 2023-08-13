@@ -33,8 +33,8 @@
     
     [self excuteLight:^(EZButton *detectButton) {
         detectButton.backgroundColor = [NSColor mm_colorWithHexString:@"#E8E8E8"];
-        detectButton.backgroundHoverColor = [NSColor mm_colorWithHexString:@"#E0E0E0"];
-        detectButton.backgroundHighlightColor = [NSColor mm_colorWithHexString:@"#D1D1D1"];
+        detectButton.backgroundHoverColor = [NSColor mm_colorWithHexString:@"#DCDCDC"];
+        detectButton.backgroundHighlightColor = [NSColor mm_colorWithHexString:@"#CCCCCC"];
     } dark:^(EZButton *detectButton) {
         detectButton.backgroundColor = [NSColor mm_colorWithHexString:@"#3D3E3F"];
         detectButton.backgroundHoverColor = [NSColor mm_colorWithHexString:@"#47494A"];
@@ -62,7 +62,7 @@
     
     [self setAnimatedHidden:NO];
 
-    NSString *detectLanguageTitle = [EZLanguageManager showingLanguageName:detectedLanguage];
+    NSString *detectLanguageTitle = [EZLanguageManager.shared showingLanguageName:detectedLanguage];
     
     NSString *title = NSLocalizedString(@"detected", nil);
     NSMutableAttributedString *attrTitle = [[NSMutableAttributedString alloc] initWithString:title];
@@ -104,11 +104,11 @@
     }
     [self.customMenu removeAllItems];
     
-    NSArray *showingLanguages = [EZLanguageManager allLanguages];
+    NSArray *showingLanguages = [EZLanguageManager.shared allLanguages];
     self.languageDict = [[MMOrderedDictionary alloc] init];
     for (EZLanguage language in showingLanguages) {
         if (![language isEqualToString:EZLanguageAuto]) {
-            NSString *languageNameWithFlag = [EZLanguageManager showingLanguageNameWithFlag:language];
+            NSString *languageNameWithFlag = [EZLanguageManager.shared showingLanguageNameWithFlag:language];
             [self.languageDict setObject:languageNameWithFlag forKey:language];
         }
     }

@@ -16,14 +16,18 @@
 "show_mini_window" = "显示迷你窗口:";
 "silent_screenshot_ocr" = "静默截图 OCR:";
 
-"auto_get_selected_text" = "鼠标自动取词:";
+"first_language" = "第一语言:";
+"second_language" = "第二语言:";
+"equal_first_and_second_language" = "第一语言和第二语言不能相同";
+
+"auto_get_selected_text" = "鼠标自动划词:";
 "auto_show_query_icon" = "划词后自动显示查询图标";
-"force_auto_get_selected_text" = "自动取词失败时，强制取词（实验功能）";
-"force_auto_get_selected_text_title" = "强制取词";
-"force_auto_get_selected_text_msg" = "注意：在某些应用中，强制取词可能会导致空复制提示音，影响剪贴板内容等异常情况。";
+"force_auto_get_selected_text" = "自动划词失败时，强制划词（实验功能）";
+"force_auto_get_selected_text_title" = "强制划词";
+"force_auto_get_selected_text_msg" = "注意：在某些应用中，强制划词可能会导致空复制提示音，影响剪贴板内容等异常情况。";
 
 "disable_empty_copy_beep" = "禁用空复制提示音:";
-"disable_empty_copy_beep_msg" = "取词内容为空时生效";
+"disable_empty_copy_beep_msg" = "划词内容为空时生效";
 
 "click_icon_query" = "点击查询:";
 "click_icon_query_info" = "点击图标时才查询（需隐藏主窗口）";
@@ -40,6 +44,7 @@
 "fixed_window_position_right" = "屏幕右侧";
 "fixed_window_position_mouse" = "鼠标位置";
 "fixed_window_position_former" = "上次位置";
+"fixed_window_position_center" = "屏幕中间";
 
 "play_word_audio" = "播放单词发音:";
 "auto_play_word_audio" = "查询英语单词后自动播放发音";
@@ -49,12 +54,12 @@
 
 "auto_query" = "自动查询:";
 "auto_query_ocr_text" = "截图 OCR 后自动查询";
-"auto_query_selected_text" = "取词后自动查询";
+"auto_query_selected_text" = "划词后自动查询";
 "auto_query_pasted_text" = "粘贴后自动查询";
 
 "auto_copy_text" = "自动复制:";
 "auto_copy_ocr_text" = "自动复制截图 OCR 结果";
-"auto_copy_selected_text" = "自动复制取词文本";
+"auto_copy_selected_text" = "自动复制划词文本";
 "auto_copy_first_translated_text" = "自动复制第一个翻译结果";
 
 "quick_link" = "快捷功能:";
@@ -84,10 +89,14 @@
 "baidu_translate" = "百度翻译";
 "youdao_dict" = "有道词典";
 "deepL_translate" = "DeepL 翻译";
-"system_translate" = "系统翻译";
+"apple_translate" = "苹果翻译";
 "volcano_translate" = "火山翻译";
 "openai_translate" = "OpenAI 翻译";
+"apple_dictionary" = "苹果词典";
 
+// disabled app list
+"disabled_app_list" = "禁止名单";
+"disabled_title" = "如果 App 在“禁止名单”中，则不会触发鼠标自动划词。";
 
 // about
 "about" = "关于";
@@ -117,7 +126,7 @@
 "error_unknown" = "未知错误";
 "query_failed" = "查询失败";
 "ocr_result_is_empty" = "⚠️ OCR 结果为空。\n⚠️ 请手动选择识别语言再次尝试。";
-"query_has_no_result" = "⚠️ 查询没有结果";
+"no_results_found" = "⚠ 未查询到结果";
 
 "placeholder" = "输入内容，Enter 查询，Shift + Enter 换行";
 

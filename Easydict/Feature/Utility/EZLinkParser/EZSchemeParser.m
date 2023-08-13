@@ -11,7 +11,7 @@
 #import "EZYoudaoTranslate.h"
 #import "EZServiceTypes.h"
 #import "EZDeepLTranslate.h"
-#import "NSUserDefaults+EZConfig.h"
+#import "EZConfiguration+EZUserData.h"
 #import "EZConfiguration.h"
 #import "EZLocalStorage.h"
 
@@ -101,9 +101,17 @@
     BOOL handled = NO;
     for (NSString *key in keyValues) {
         NSString *value = keyValues[key];
-        if ([self.allowedReadWriteKeys containsObject:key]) {
+        handled = [self enabledReadWriteKey:key];
+        if (handled) {
+            EZConfiguration *config = [EZConfiguration shared];
+            BOOL isBeta = config.isBeta;
+            
             [[NSUserDefaults standardUserDefaults] setObject:value forKey:key];
-            handled = YES;
+            
+            // If enabling beta feature, setup beta features.
+            if (!isBeta && config.isBeta) {
+                [EZConfiguration.shared enableBetaFeaturesIfNeeded];
+            }
         }
     }
     return handled;
@@ -111,16 +119,36 @@
 
 /// Read value of key from NSUserDefaults. easydict://readValueOfKey?EZOpenAIAPIKey
 - (nullable NSString *)readValueOfKey:(NSString *)key {
-    if ([self.allowedReadWriteKeys containsObject:key]) {
+    if ([self enabledReadWriteKey:key]) {
         return [[NSUserDefaults standardUserDefaults] objectForKey:key];
     } else {
         return nil;
     }
 }
 
+- (BOOL)enabledReadWriteKey:(NSString *)key {
+    BOOL handled = NO;
+    if ([self.allowedReadWriteKeys containsObject:key]) {
+        handled = YES;
+    }
+    
+    if ([EZConfiguration.shared isBeta]) {
+        NSArray *allServiceTypes = [EZServiceTypes.shared allServiceTypes];
+        // easydict://writeKeyValue?Google-IntelligentQueryTextType=0
+        NSArray *arr = [key componentsSeparatedByString:@"-"];
+        if (arr.count) {
+            NSString *keyString = arr.firstObject;
+            if ([allServiceTypes containsObject:keyString] || [self.allowedReadWriteKeys containsObject:keyString]) {
+                handled = YES;
+            }
+        }
+    }
+    return handled;
+}
+
 - (void)resetUserDefaultsData {
     // easydict://resetUserDefaultsData
-    [[NSUserDefaults standardUserDefaults] resetUserDefaultsData];
+    [EZConfiguration.shared resetUserDefaultsData];
     
     [EZLocalStorage destroySharedInstance];
     [EZConfiguration destroySharedInstance];
@@ -128,7 +156,7 @@
 
 - (void)saveUserDefaultsDataToDownloadFolder {
     // easydict://saveUserDefaultsDataToDownloadFolder
-    [[NSUserDefaults standardUserDefaults] saveUserDefaultsDataToDownloadFolder];
+    [EZConfiguration.shared saveUserDefaultsDataToDownloadFolder];
 }
 
 
@@ -150,8 +178,14 @@
      
      // Youdao TTS
      easydict://writeKeyValue?EZDefaultTTSServiceKey=Youdao
+     
+     // Intelligent Query Mode, enable mini window
+     easydict://writeKeyValue?IntelligentQueryMode-window1=1
+     
+     // Intelligent Query
+     easydict://writeKeyValue?Google-IntelligentQueryTextType=5  // translation | sentence
+     easydict://writeKeyValue?Youdao-IntelligentQueryTextType=2  // dictionary
      */
-    
     
     NSArray *readWriteKeys = @[
         EZBetaFeatureKey,
@@ -162,6 +196,7 @@
         EZOpenAIServiceUsageStatusKey,
         EZOpenAIDomainKey,
         EZOpenAIModelKey,
+        EZOpenAIFullRequestUrlKey,
         
         EZYoudaoTranslationKey,
         EZYoudaoDictionaryKey,
@@ -170,6 +205,8 @@
         EZDeepLTranslationAPIKey,
         
         EZDefaultTTSServiceKey,
+        
+        EZIntelligentQueryModeKey,
     ];
     
     return readWriteKeys;
@@ -260,10 +297,10 @@
     
     NSArray *allowdKeyNames = @[
         EZServiceUsageStatusKey,
-        EZQueryServiceTypeKey,
+        EZQueryTextTypeKey,
     ];
     
-    NSArray *allServiceTypes = [EZServiceTypes allServiceTypes];
+    NSArray *allServiceTypes = [EZServiceTypes.shared allServiceTypes];
     
     BOOL validKey = [allServiceTypes containsObject:serviceType] && [allowdKeyNames containsObject:key];
     

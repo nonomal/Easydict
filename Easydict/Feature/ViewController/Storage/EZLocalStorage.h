@@ -9,6 +9,7 @@
 #import <Foundation/Foundation.h>
 #import "EZServiceInfo.h"
 #import "EZLayoutManager.h"
+#import "EZAppModel.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -16,6 +17,11 @@ static NSString *const EZServiceHasUpdatedNotification = @"EZServiceHasUpdatedNo
 static NSString *const EZWindowTypeKey = @"EZWindowTypeKey";
 
 @interface EZLocalStorage : NSObject
+
+#pragma mark - Disabled AppModel
+
+@property (nonatomic, copy) NSArray<EZAppModel *> *selectTextTypeAppModelList;
+
 
 + (instancetype)shared;
 

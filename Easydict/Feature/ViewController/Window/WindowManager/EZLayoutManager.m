@@ -111,11 +111,11 @@ static EZLayoutManager *_instance;
         case EZWindowTypeMain:
             return 75; // three line
         case EZWindowTypeFixed:
-            return 54; // two line
+            return 65; // > two line
         case EZWindowTypeMini:
-            return 36; // one line, a litte bigger.
+            return 44; // > one line.
         default:
-            return 54;
+            return 54; // two line
     }
 }
 
@@ -208,28 +208,6 @@ static EZLayoutManager *_instance;
     }
     
     [EZConfiguration.shared setWindowFrame:window.frame windowType:windowType];
-}
-
-- (NSString *)windowName:(EZWindowType)type {
-    switch (type) {
-        case EZWindowTypeMain:
-            return @"main_window";
-        case EZWindowTypeFixed:
-            return @"fixed_window";
-        case EZWindowTypeMini:
-            return @"mini_window";
-        default:
-            return @"none_window";
-    }
-}
-
-- (MMOrderedDictionary<NSNumber *, NSString *> *)fixedWindowPositionDict {
-    MMOrderedDictionary *dict = [[MMOrderedDictionary alloc] initWithKeysAndObjects:
-                                 @(EZShowWindowPositionRight), NSLocalizedString(@"fixed_window_position_right", nil),
-                                 @(EZShowWindowPositionMouse), NSLocalizedString(@"fixed_window_position_mouse", nil),
-                                 @(EZShowWindowPositionFormer), NSLocalizedString(@"fixed_window_position_former", nil), nil];
-    
-    return dict;
 }
 
 @end

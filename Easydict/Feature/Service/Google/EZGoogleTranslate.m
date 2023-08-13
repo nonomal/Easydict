@@ -11,6 +11,7 @@
 #import <JavaScriptCore/JavaScriptCore.h>
 #import "EZTextWordUtils.h"
 #import "NSArray+EZChineseText.h"
+#import "EZConfiguration.h"
 
 static NSString *const kGoogleTranslateURL = @"https://translate.google.com";
 
@@ -110,6 +111,15 @@ static NSString *const kGoogleTranslateURL = @"https://translate.google.com";
     return EZServiceTypeGoogle;
 }
 
+- (EZQueryTextType)queryTextType {
+    return EZQueryTextTypeDictionary | EZQueryTextTypeSentence | EZQueryTextTypeTranslation;
+}
+
+- (EZQueryTextType)intelligentQueryTextType {
+    EZQueryTextType type = [EZConfiguration.shared intelligentQueryTextTypeForServiceType:self.serviceType];
+    return type;
+}
+
 - (NSString *)name {
     return NSLocalizedString(@"google_translate", nil);
 }
@@ -187,8 +197,7 @@ static NSString *const kGoogleTranslateURL = @"https://translate.google.com";
 - (void)translate:(NSString *)text
              from:(EZLanguage)from
                to:(EZLanguage)to
-       completion:(nonnull void (^)(EZQueryResult *_Nullable,
-                                    NSError *_Nullable))completion {
+       completion:(nonnull void (^)(EZQueryResult *_Nullable, NSError *_Nullable))completion {
     if ([self prehandleQueryTextLanguage:text autoConvertChineseText:NO from:from to:to completion:completion]) {
         return;
     }
@@ -357,7 +366,7 @@ static NSString *const kGoogleTranslateURL = @"https://translate.google.com";
                         
                         EZWordPhonetic *phonetic = [[EZWordPhonetic alloc] init];
                         phonetic.name = NSLocalizedString(@"us_phonetic", nil);
-                        if ([EZLanguageManager isChineseLanguage:from]) {
+                        if ([EZLanguageManager.shared isChineseLanguage:from]) {
                             phonetic.name = NSLocalizedString(@"chinese_phonetic", nil);
                         }
                         
@@ -856,7 +865,7 @@ static NSString *const kGoogleTranslateURL = @"https://translate.google.com";
 - (NSString *)maxTextLength:(NSString *)text fromLanguage:(EZLanguage)from {
     // Chinese max text length 1800
     // English max text length 5000
-    if ([EZLanguageManager isChineseLanguage:from] && text.length > 1800) {
+    if ([EZLanguageManager.shared isChineseLanguage:from] && text.length > 1800) {
         text = [text substringToIndex:1800];
     } else {
         text = [text trimToMaxLength:5000];

@@ -10,6 +10,8 @@
 #import "EZLocalStorage.h"
 #import "EZAudioPlayer.h"
 #import "NSString+EZChineseText.h"
+#import "EZTextWordUtils.h"
+#import "EZConfiguration.h"
 
 #define MethodNotImplemented()                                                                                                           \
 @throw [NSException exceptionWithName:NSInternalInconsistencyException                                                               \
@@ -48,10 +50,26 @@ userInfo:nil]
     [[EZLocalStorage shared] setEnabledQuery:enabledQuery serviceType:self.serviceType windowType:self.windowType];
 }
 
-- (BOOL)enabled {
-    if (self.queryServiceType == EZQueryServiceTypeNone) {
+- (BOOL)enabledAutoQuery {
+    if (self.serviceUsageStatus == EZServiceUsageStatusAlwaysOff) {
         return NO;
     }
+    
+    if ([EZConfiguration.shared intelligentQueryModeForWindowType:self.windowType]) {
+        EZQueryTextType queryType = [EZTextWordUtils queryTypeOfText:self.queryModel.queryText language:self.queryModel.queryFromLanguage];
+        if ((queryType & self.intelligentQueryTextType) != queryType) {
+            return NO;
+        }
+    }
+
+    return YES;
+}
+
+- (BOOL)enabled {
+    if (self.queryTextType == EZQueryTextTypeNone) {
+        return NO;
+    }
+    
     return _enabled;
 }
 
@@ -121,8 +139,12 @@ userInfo:nil]
     return nil;
 }
 
-- (EZQueryServiceType)queryServiceType {
-    return EZQueryServiceTypeTranslation;
+- (EZQueryTextType)queryTextType {
+    return EZQueryTextTypeTranslation | EZQueryTextTypeSentence;
+}
+
+- (EZQueryTextType)intelligentQueryTextType {
+    return EZQueryTextTypeTranslation | EZQueryTextTypeSentence;
 }
 
 - (EZServiceUsageStatus)serviceUsageStatus {
@@ -160,7 +182,7 @@ userInfo:nil]
 - (BOOL)prehandleQueryTextLanguage:(NSString *)text autoConvertChineseText:(BOOL)isConvert from:(EZLanguage)from to:(EZLanguage)to completion:(void (^)(EZQueryResult *_Nullable result, NSError *_Nullable error))completion {
     // If translated language is Chinese, use Chinese text convert directly.
     NSArray *languages = @[ from, to ];
-    if (isConvert && [EZLanguageManager onlyContainsChineseLanguages:languages]) {
+    if (isConvert && [EZLanguageManager.shared onlyContainsChineseLanguages:languages]) {
         NSString *result;
         if ([to isEqualToString:EZLanguageSimplifiedChinese]) {
             result = [text toSimplifiedChineseText];
@@ -210,7 +232,7 @@ userInfo:nil]
     
     // Youdao web TTS,
     if (self.serviceType == EZServiceTypeYoudao) {
-        if ([EZLanguageManager isChineseLanguage:language]) {
+        if ([EZLanguageManager.shared isChineseLanguage:language]) {
             languageCode = @"zh"; // Not zh-CHS
         }
     }

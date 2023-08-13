@@ -10,6 +10,22 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+/// Window type
+typedef NS_ENUM(NSInteger, EZWindowType) {
+    EZWindowTypeNone = -1,
+    EZWindowTypeMain = 0,
+    EZWindowTypeMini = 1,
+    EZWindowTypeFixed = 2,
+};
+
+/// Show window position
+typedef NS_ENUM(NSUInteger, EZShowWindowPosition) {
+    EZShowWindowPositionRight = 0,
+    EZShowWindowPositionMouse = 1,
+    EZShowWindowPositionFormer = 2,
+    EZShowWindowPositionCenter = 3,
+};
+
 FOUNDATION_EXPORT NSString *const EZServiceTypeKey;
 
 typedef NSString *EZServiceType NS_STRING_ENUM;
@@ -20,14 +36,17 @@ FOUNDATION_EXPORT EZServiceType const EZServiceTypeApple;
 FOUNDATION_EXPORT EZServiceType const EZServiceTypeDeepL;
 FOUNDATION_EXPORT EZServiceType const EZServiceTypeVolcano;
 FOUNDATION_EXPORT EZServiceType const EZServiceTypeOpenAI;
+FOUNDATION_EXPORT EZServiceType const EZServiceTypeAppleDictionary;
 
 
-FOUNDATION_EXPORT NSString *const EZQueryServiceTypeKey;
-typedef NS_OPTIONS(NSUInteger, EZQueryServiceType) {
-    EZQueryServiceTypeNone = 0,
-    EZQueryServiceTypeTranslation = 1 << 0,
-    EZQueryServiceTypeDictionary = 1 << 1,
-    EZQueryServiceTypeSentence = 1 << 2,
+FOUNDATION_EXPORT NSString *const EZQueryTextTypeKey;
+FOUNDATION_EXPORT NSString *const EZIntelligentQueryTextTypeKey;
+
+typedef NS_OPTIONS(NSUInteger, EZQueryTextType) {
+    EZQueryTextTypeNone = 0, // 0
+    EZQueryTextTypeTranslation = 1 << 0, // 01 = 1
+    EZQueryTextTypeDictionary = 1 << 1, // 10 = 2
+    EZQueryTextTypeSentence = 1 << 2, // 100 = 4
 };
 
 
@@ -61,6 +80,27 @@ FOUNDATION_EXPORT EZSelectTextType const EZSelectTextTypeAppleScript;
 
 
 FOUNDATION_EXPORT NSString *const EZDefaultTTSServiceKey;
+
+
+/// Action trigger type
+typedef NS_OPTIONS(NSUInteger, EZTriggerType) {
+    EZTriggerTypeNone = 0,
+    EZTriggerTypeDoubleClick = 1 << 0,
+    EZTriggerTypeTripleClick = 1 << 1,
+    EZTriggerTypeDragged = 1 << 2,
+    EZTriggerTypeShift = 1 << 3,
+};
+
+
+@interface  EZEnumTypes: NSObject
+
++ (NSString *)stringValueOfTriggerType:(EZTriggerType)triggerType;
+
++ (NSString *)windowName:(EZWindowType)type;
+
++ (MMOrderedDictionary<NSNumber *, NSString *> *)fixedWindowPositionDict;
+
+@end
 
 
 NS_ASSUME_NONNULL_END

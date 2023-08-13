@@ -21,6 +21,7 @@
 #import "NSData+EZMD5.h"
 #import "EZNetworkManager.h"
 #import "NSArray+EZChineseText.h"
+#import "EZConfiguration.h"
 
 static NSString *const kYoudaoTranslatetURL = @"https://fanyi.youdao.com";
 static NSString *const kYoudaoDictURL = @"https://dict.youdao.com";
@@ -159,17 +160,22 @@ static NSString *const kYoudaoDictURL = @"https://dict.youdao.com";
     return EZServiceTypeYoudao;
 }
 
-- (EZQueryServiceType)queryServiceType {
-    EZQueryServiceType type = EZQueryServiceTypeNone;
+- (EZQueryTextType)queryTextType {
+    EZQueryTextType type = EZQueryTextTypeNone;
     BOOL enableTranslation = [[NSUserDefaults mm_readString:EZYoudaoTranslationKey defaultValue:@"1"] boolValue];
     BOOL enableDictionary = [[NSUserDefaults mm_readString:EZYoudaoDictionaryKey defaultValue:@"1"] boolValue];
     if (enableTranslation) {
-        type = type | EZQueryServiceTypeTranslation;
+        type = type | EZQueryTextTypeTranslation | EZQueryTextTypeSentence;
     }
     if (enableDictionary) {
-        type = type | EZQueryServiceTypeDictionary;
+        type = type | EZQueryTextTypeDictionary;
     }
     
+    return type;
+}
+
+- (EZQueryTextType)intelligentQueryTextType {
+    EZQueryTextType type = [EZConfiguration.shared intelligentQueryTextTypeForServiceType:self.serviceType];
     return type;
 }
 
@@ -207,9 +213,9 @@ static NSString *const kYoudaoDictURL = @"https://dict.youdao.com";
     }
     
     NSString *foreignLangauge = nil; // en,fr,
-    if ([EZLanguageManager isChineseLanguage:fromLanguage]) {
+    if ([EZLanguageManager.shared isChineseLanguage:fromLanguage]) {
         foreignLangauge = [self languageCodeForLanguage:toLanguage];
-    } else if ([EZLanguageManager isChineseLanguage:toLanguage]) {
+    } else if ([EZLanguageManager.shared isChineseLanguage:toLanguage]) {
         foreignLangauge = [self languageCodeForLanguage:fromLanguage];
     }
     
@@ -452,8 +458,8 @@ static NSString *const kYoudaoDictURL = @"https://dict.youdao.com";
         return;
     }
     
-    if (self.queryServiceType == EZQueryServiceTypeNone) {
-        self.result.errorMessage = NSLocalizedString(@"query_has_no_result", nil);
+    if (self.queryTextType == EZQueryTextTypeNone) {
+        self.result.errorMessage = NSLocalizedString(@"no_results_found", nil);
         completion(self.result, nil);
         return;
     }
@@ -469,7 +475,7 @@ static NSString *const kYoudaoDictURL = @"https://dict.youdao.com";
         dispatch_group_leave(group);
     }];
     
-    BOOL enableTranslation = self.queryServiceType & EZQueryServiceTypeTranslation;
+    BOOL enableTranslation = self.queryTextType & EZQueryTextTypeTranslation;
     if (enableTranslation) {
         // 2.Query Youdao translate.
         dispatch_group_enter(group);
@@ -494,12 +500,12 @@ static NSString *const kYoudaoDictURL = @"https://dict.youdao.com";
         return;
     }
     
-    if (self.queryServiceType == EZQueryServiceTypeNone) {
+    if (self.queryTextType == EZQueryTextTypeNone) {
         completion(self.result, nil);
         return;
     }
     
-    BOOL enableDictionary = self.queryServiceType & EZQueryServiceTypeDictionary;
+    BOOL enableDictionary = self.queryTextType & EZQueryTextTypeDictionary;
     
     // Youdao dict can query word, phrase, even short text.
     BOOL shouldQueryDictionary = [EZTextWordUtils shouldQueryDictionary:text language:from];
@@ -509,7 +515,7 @@ static NSString *const kYoudaoDictURL = @"https://dict.youdao.com";
     
     // If Youdao Dictionary does not support the language, try querying translate API.
     if (!enableDictionary || !supportQueryDictionaryLanguage || !shouldQueryDictionary) {
-        self.result.errorMessage = NSLocalizedString(@"query_has_no_result", nil);
+        self.result.errorMessage = NSLocalizedString(@"no_results_found", nil);
         completion(self.result, nil);
         return;
     }

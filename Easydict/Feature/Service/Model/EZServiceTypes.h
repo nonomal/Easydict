@@ -14,11 +14,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface EZServiceTypes : NSObject
 
-+ (NSArray<EZServiceType> *)allServiceTypes;
+@property (nonatomic, copy, readonly) NSArray<EZServiceType> *allServiceTypes;
 
-+ (nullable EZQueryService *)serviceWithType:(EZServiceType)type;
++ (instancetype)shared;
 
-+ (NSArray<EZQueryService *> *)servicesFromTypes:(NSArray<EZServiceType> *)types;
+- (nullable EZQueryService *)serviceWithType:(EZServiceType)type;
+
+- (NSArray<EZQueryService *> *)servicesFromTypes:(NSArray<EZServiceType> *)types;
 
 @end
 

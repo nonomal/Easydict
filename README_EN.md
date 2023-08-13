@@ -3,25 +3,26 @@
   <h1 align="center">Easydict</h1>
   <h4 align="center"> Easy to look up words or translate text</h4>
 <p align="center"> 
-<a href="https://github.com/tisfeng/Easydict/blob/main/README.md">
-        <img src="https://img.shields.io/badge/%E4%B8%AD%E6%96%87-Chinese-green"
-            alt="中文 README"></a>
-<a href="https://github.com/tisfeng/Easydict/blob/main/docs/README_EN.md">
-        <img src="https://img.shields.io/badge/%E8%8B%B1%E6%96%87-English-green"
-            alt="English README"></a>
 <a href="https://github.com/tisfeng/easydict/blob/main/LICENSE">
-        <img src="https://img.shields.io/github/license/tisfeng/easydict"
+<img src="https://img.shields.io/github/license/tisfeng/easydict"
             alt="License"></a>
 <a href="https://github.com/tisfeng/Easydict/releases">
-        <img src="https://img.shields.io/github/downloads/tisfeng/easydict/total.svg"
+<img src="https://img.shields.io/github/downloads/tisfeng/easydict/total.svg"
             alt="Downloads"></a>
+<a href="https://img.shields.io/badge/-macOS-black?&logo=apple&logoColor=white">
+<img src="https://img.shields.io/badge/-macOS-black?&logo=apple&logoColor=white"
+            alt="macOS"></a>  
 </p>
 
-## [中文介绍](../README.md) | [English](./docs/README_EN.md)
+<div align="center">
+<a href="./README.md">中文</a> &nbsp;&nbsp;|&nbsp;&nbsp; <a href="./README_EN.md">English</a>
+</div>
+
+## Easydict
 
 `Easydict` is a concise and easy-to-use translation dictionary macOS App that allows you to easily and elegantly look up words or translate text. Easydict is ready to use out of the box, can automatically recognize the language of the input text, supports input translate, select translate, and OCR screenshot translate, and can query multiple translation services result at the same time. Currently, it supports [Youdao Dictionary](https://www.youdao.com/), **macOS System Translation**, [DeepL](https://www.deepl.com/translator), [Google](https://translate.google.com/), [Baidu](https://fanyi.baidu.com/), and [Volcano Translation](https://translate.volcengine.com/translate).
 
-![Log](https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/Log-1686534936.png)
+![Log](https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/Log-1688378715.png)
 
 <table>
     <td> <img src="https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/iShot_2023-05-28_16.32.18-1685262784.png">
@@ -54,7 +55,7 @@ _**If you like this extension, please give it a [Star](https://github.com/tisfen
 
 ## Table of contents
 
-- [中文介绍 | English README](#中文介绍--english-readme)
+- [Easydict](#easydict)
 - [Features](#features)
 - [Table of contents](#table-of-contents)
 - [Installation](#installation)
@@ -64,7 +65,7 @@ _**If you like this extension, please give it a [Star](https://github.com/tisfen
   - [Signature Problem ⚠️](#signature-problem-️)
 - [Usage](#usage)
   - [Select text by Mouse](#select-text-by-mouse)
-  - [Notice](#notice)
+  - [About Permissions](#about-permissions)
 - [OCR](#ocr)
 - [Language Recognition](#language-recognition)
 - [Translation Services](#translation-services)
@@ -102,11 +103,25 @@ brew install easydict
 
 If you are a developer, or are interested in this project, you can also try to build and run it manually. The whole process is very simple, even without knowing macOS development knowledge.
 
+<details> <summary> Build Steps： </summary>
+
+<p>
+
 Just download this Repo, then use [Xcode](https://developer.apple.com/xcode/) to open the `Easydict.xcworkspace` file(⚠️ Not `Easydict.xcodeproj`!), `Cmd + R` to compile and run.
 
 If a signature error occurs during compilation, please use your own developer account on the `Signing & Capabilities` page of the target. If you are not an Apple developer yet, just go to https://developer.apple.com/ and register for free.
 
+If you don't want to register as an Apple developer, you can also run with automatic signature, refer to the screenshot below, change `Team` to None and `Signing Certificate` to Sign to Run Locally, note that both targets should be changed.
+
+<div>
+  <img src="https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/iShot_2023-06-22_16.06.35-1687421213.png" width="100%" />
+</div>
+
 Build environment: Xcode 13+, macOS Big Sur 11.3+. To avoid unnecessary problems, it is recommended to use the latest Xcode and macOS version https://github.com/tisfeng/Easydict/issues/79
+
+</p>
+
+</details>
 
 ### Signature Problem ⚠️
 
@@ -148,12 +163,12 @@ Once Easydict is launched, in addition to the main window (hidden by default), t
   <img src="https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/xb77fI-1684688321.png" width="50%" />
 </div>
 
-| Ways                      | Description                                                                                                                               | Preview                                                                                                                                        |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Mouse select translate    | The query icon is automatically displayed after the word is selected, and the mouse hovers over it to query                               | ![iShot_2023-01-20_11.01.35-1674183779](https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/iShot_2023-01-20_11.01.35-1674183779.gif) |
-| Shortcut select translate | After selecting the text to be translated, press the shortcut key (default `⌥ + D`)                                                       | ![iShot_2023-01-20_11.24.37-1674185125](https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/iShot_2023-01-20_11.24.37-1674185125.gif) |
-| Screenshot translate      | Press the screenshot translate shortcut key (default `⌥ + S`) to capture the area to be translated                                        | ![iShot_2023-01-20_11.26.25-1674185209](https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/iShot_2023-01-20_11.26.25-1674185209.gif) |
-| Input translate           | Press the input translate shortcut key (default `⌥ + A`, or `⌥ + F`), enter the text to be translated, and `Enter` key to translate       | ![iShot_2023-01-20_11.28.46-1674185354](https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/iShot_2023-01-20_11.28.46-1674185354.gif) |
+| Ways                      | Description                                                                                                                                  | Preview                                                                                                                                        |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mouse select translate    | The query icon is automatically displayed after the word is selected, and the mouse hovers over it to query                                  | ![iShot_2023-01-20_11.01.35-1674183779](https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/iShot_2023-01-20_11.01.35-1674183779.gif) |
+| Shortcut select translate | After selecting the text to be translated, press the shortcut key (default `⌥ + D`)                                                          | ![iShot_2023-01-20_11.24.37-1674185125](https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/iShot_2023-01-20_11.24.37-1674185125.gif) |
+| Screenshot translate      | Press the screenshot translate shortcut key (default `⌥ + S`) to capture the area to be translated                                           | ![iShot_2023-01-20_11.26.25-1674185209](https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/iShot_2023-01-20_11.26.25-1674185209.gif) |
+| Input translate           | Press the input translate shortcut key (default `⌥ + A`, or `⌥ + F`), enter the text to be translated, and `Enter` key to translate          | ![iShot_2023-01-20_11.28.46-1674185354](https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/iShot_2023-01-20_11.28.46-1674185354.gif) |
 | Silent Screenshot OCR     | Press the Silent Screenshot shortcut key（default `⌥ + ⇧ + S`）to capture the area, the OCR results will be copied directly to the clipboard | ![屏幕录制2023-05-20 22 39 11](https://github.com/Jerry23011/Easydict/assets/89069957/c16f3c20-1748-411e-be04-11d8fe0e61af)                    |
 
 ### Select text by Mouse
@@ -162,7 +177,16 @@ Currently, multiple mouse quick word selection methods are supported: double-cli
 
 The shortcut key to select words can work normally in any application. If you encounter an application that cannot select words, you can open an issue to solve it https://github.com/tisfeng/Easydict/issues/84
 
-### Notice
+The flow of the crossword function: Accessibility > AppleScript > simulated shortcuts, giving priority to the secondary function Accessibility fetching, and if Accessibility fetching fails (unauthorized or not supported by the application), if it is a browser application (e.g. Safari, Chrome), it will try to use AppleScript fetching. If the AppleScript fetching still fails, then the final forced fetching is done - simulating the shortcut Cmd+C to fetch the word.
+
+Therefore, it is recommended to turn on the Allow JavaScript in Apple events option in your browser to avoid event blocking on certain web pages, such as those with [forced copyright information](<(https://github.com/tisfeng/Easydict/issues/85)>), and to optimize the word fetching experience. For Safari users, it is highly recommended that this option be turned on, as Safari does not support Accessibility fetching, and AppleScript fetching is far superior to simulating shortcuts.
+
+<div>
+    <img src="https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/image-20230708115811617-1688788691.png" width="45%">
+    <img src="https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/image-20230708115827839-1688788707.png" width="45%">
+</div>
+
+### About Permissions
 
 1. `Select Translate` requires the `Auxiliary Accessibility`.The mouse stroke function only triggers the application of auxiliary accessibility permission when it is used for the first time, and the automatic stroke translation function can only be used normally after authorization.
 
@@ -249,9 +273,9 @@ If you still feel that the system language recognition is inaccurate in actual u
 
 ### DeepL Translate
 
-Since the DeepL web free version has a frequency limit, it is easy to trigger the 429 error, so version 1.3.0 adds support for the DeepL official API, but the interface has not been written yet and needs to be enabled through the command line.
+DeepL free version web API has frequency limit for single IP, frequent use will trigger 429 too many requests error, so version 1.3.0 adds support for DeepL official API, but the interface has not been written yet, and needs to be enabled through command.
 
-If you have a DeepL AuthKey, it is recommended to use a personal AuthKey, so that the frequency limit can be avoided, and the user experience will be better.
+If you have DeepL AuthKey, it is recommended to use personal AuthKey, so as to avoid frequency limit and improve user experience. If not, you can use the way of switching proxy IP to avoid 429 error.
 
 #### Configure AuthKey
 
@@ -401,13 +425,24 @@ If sponsorship is enough to cover Apple's $99 annual fee, I will sign up for a d
 
 ### Sponsor List
 
-|  **日期**  | **用户** | **金额** |                                                     **留言**                                                      |
-| :--------: | :------: | :------: | :---------------------------------------------------------------------------------------------------------------: |
-| 2023-05-22 |    🍑    |    50    |                                                     感谢开源                                                      |
-| 2023-05-22 |    -     |   200    |                                                                                                                   |
-| 2023-05-22 |    -     |   150    |                                                                                                                   |
-| 2023-05-24 |   陈佩   |    50    | 加油 有没有可能有 Linux 版？（[暂时没有](https://github.com/tisfeng/Easydict/issues/57#issuecomment-1555913845)） |
-| 2023-05-27 |  自由。  |   100    |                                                       感谢                                                        |
-| 2023-06-01 | 梦遇 | 10 | 感谢 |
-| 2023-06-05 | 挨揍的免子 | 1 | 谢谢🙏 |
+If you don't want your username to be displayed in the list, please choose anonymous.
 
+|  **日期**  |     **用户**      | **金额** |                                                          **留言**                                                           |
+| :--------: | :---------------: | :------: | :-------------------------------------------------------------------------------------------------------------------------: |
+| 2023-05-22 |        🍑         |    50    |                                                          感谢开源                                                           |
+| 2023-05-22 |         -         |   200    |                                                                                                                             |
+| 2023-05-22 |         -         |   150    |                                                                                                                             |
+| 2023-05-24 |       陈佩        |    50    |      加油 有没有可能有 Linux 版？（[暂时没有](https://github.com/tisfeng/Easydict/issues/57#issuecomment-1555913845)）      |
+| 2023-05-27 |      自由。       |   100    |                                                            感谢                                                             |
+| 2023-06-01 |       梦遇        |    10    |                                                            感谢                                                             |
+| 2023-06-05 |    挨揍的免子     |    1     |                                                           谢谢 🙏                                                           |
+| 2023-06-17 |       妙才        |    5     |                                                             ❤️                                                              |
+| 2023-06-19 |         1         |    20    | 加油，有没有可能调用 chatgpt 来翻译呀？（参见[#28](https://github.com/tisfeng/Easydict/issues/28#issuecomment-1527827829)） |
+| 2023-06-19 |      许冠英       |   6.6    |                                              感谢开发这么好用的软件，很喜欢。                                               |
+| 2023-06-20 |    lidashuang     |    10    |                                                            感谢                                                             |
+| 2023-07-03 |       小阳        |    2     |                                                                                                                             |
+| 2023-07-06 |                   |    30    |                                                            谢谢                                                             |
+| 2023-07-11 | 清清 🎵 在努力 ✨ |    20    |                                                                                                                             |
+| 2023-07-21 |                   |    50    |                                                             ty                                                              |
+| 2023-07-25 |                   |    10    |                                                          感谢开源                                                           |
+| 2023-08-07 |     guanyuan      |    58    |                                                          开源万岁                                                           |

@@ -17,7 +17,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface EZWindowManager : NSObject
 
-@property (nonatomic, strong) EZMainQueryWindow *mainWindow;
+@property (nonatomic, strong, nullable) EZMainQueryWindow *mainWindow;
 @property (nonatomic, strong) EZPopButtonWindow *popButtonWindow;
 @property (nonatomic, strong, nullable) EZFixedQueryWindow *fixedWindow;
 @property (nonatomic, strong, nullable) EZMiniQueryWindow *miniWindow;
@@ -48,6 +48,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)clearAll;
 - (void)focusInputTextView;
 - (void)copyQueryText;
+- (void)copyFirstTranslatedText;
 - (void)playOrStopQueryTextAudio;
 - (void)rerty;
 - (void)toggleTranslationLanguages;
@@ -75,8 +76,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)activeLastFrontmostApplication;
 
-- (void)showOrHideDockAppAndMainWindow;
-- (void)showMainWindow:(BOOL)showFlag;
+- (void)showMainWindowIfNedded;
+- (void)closeMainWindowIfNeeded;
 
 - (void)updatePopButtonQueryAction;
 

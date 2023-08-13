@@ -30,20 +30,19 @@
 
     [EZMenuItemManager.shared setup];
     [EZShortcut setup];
+
+    [EZWindowManager.shared showMainWindowIfNedded];
     
-    [[EZWindowManager shared] showOrHideDockAppAndMainWindow];
+    [self registerRouters];
     
     // Change App icon manually.
     //    NSApplication.sharedApplication.applicationIconImage = [NSImage imageNamed:@"white-black-icon"];
-    
-    
-    [self registerRouters];
 }
 
 /// Auto set up app language.
 - (void)setupAppLanguage {
     NSString *systemLanguageCode = @"en-CN";
-    if ([EZLanguageManager isChineseFirstLanguage]) {
+    if ([EZLanguageManager.shared isSystemChineseFirstLanguage]) {
         systemLanguageCode = @"zh-CN";
     }
     
@@ -85,18 +84,9 @@
     [[EZMenuItemManager shared] remove];
 }
 
-- (BOOL)applicationShouldHandleReopen:(NSApplication *)theApplication hasVisibleWindows:(BOOL)flag {
-    [EZWindowManager.shared showMainWindow:YES];
-    
-    [EZLog logWindowAppear:EZWindowTypeMain];
-    
-    return YES;
-}
-
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)application {
-    // Hide dock app, not exit.
-    //    [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
-    
+    [EZWindowManager.shared closeMainWindowIfNeeded];
+
     return NO;
 }
 

@@ -10,6 +10,7 @@
 #import "EZTranslateError.h"
 #import "EZQueryResult+EZDeepLTranslateResponse.h"
 #import "EZTextWordUtils.h"
+#import "EZConfiguration.h"
 
 static NSString *const kDefinitionDelimiter = @"{---Definition---}:";
 static NSString *const kEtymologyDelimiter = @"{---Etymology---}:";
@@ -54,6 +55,31 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
     return model;
 }
 
+- (NSString *)requestUrlWithDefaultFormatUrl:(nullable NSString *)defaultFormatUrl {
+    NSString *url = [NSUserDefaults mm_readString:EZOpenAIFullRequestUrlKey defaultValue:@""];
+    if (url.length == 0) {
+        if (defaultFormatUrl == nil || defaultFormatUrl.length == 0) {
+            defaultFormatUrl = @"https://%@/v1/chat/completions";
+        }
+        url = [NSString stringWithFormat:defaultFormatUrl, self.domain];
+    }
+    return url;
+}
+
+- (NSDictionary *)requestHeader {
+    // Docs: https://platform.openai.com/docs/guides/chat/chat-vs-completions
+    
+    // Read openai key from NSUserDefaults
+    NSString *openaiKey = [[NSUserDefaults standardUserDefaults] stringForKey:EZOpenAIAPIKey] ?: @"";
+    NSDictionary *header = @{
+        @"Content-Type" : @"application/json",
+        @"Authorization" : [NSString stringWithFormat:@"Bearer %@", openaiKey],
+        // support azure open ai, Ref: https://learn.microsoft.com/zh-cn/azure/cognitive-services/openai/chatgpt-quickstart?tabs=bash&pivots=rest-api
+        @"api-key": openaiKey,
+    };
+    return header;
+}
+
 
 #pragma mark - 重写父类方法
 
@@ -61,24 +87,29 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
     return EZServiceTypeOpenAI;
 }
 
-- (EZQueryServiceType)queryServiceType {
-    EZQueryServiceType type = EZQueryServiceTypeNone;
+- (EZQueryTextType)queryTextType {
+    EZQueryTextType type = EZQueryTextTypeNone;
     BOOL enableTranslation= [[NSUserDefaults mm_readString:EZOpenAITranslationKey defaultValue:@"1"] boolValue];
     BOOL enableDictionary = [[NSUserDefaults mm_readString:EZOpenAIDictionaryKey defaultValue:@"1"] boolValue];
     BOOL enableSentence = [[NSUserDefaults mm_readString:EZOpenAISentenceKey defaultValue:@"1"] boolValue];
     if (enableTranslation) {
-        type = type | EZQueryServiceTypeTranslation;
+        type = type | EZQueryTextTypeTranslation;
     }
     if (enableDictionary) {
-        type = type | EZQueryServiceTypeDictionary;
+        type = type | EZQueryTextTypeDictionary;
     }
      if (enableSentence) {
-        type = type | EZQueryServiceTypeSentence;
+        type = type | EZQueryTextTypeSentence;
     }
-    if (type == EZQueryServiceTypeNone) {
-        type = EZQueryServiceTypeTranslation;
+    if (type == EZQueryTextTypeNone) {
+        type = EZQueryTextTypeTranslation;
     }
 
+    return type;
+}
+
+- (EZQueryTextType)intelligentQueryTextType {
+    EZQueryTextType type = [EZConfiguration.shared intelligentQueryTextTypeForServiceType:self.serviceType];
     return type;
 }
 
@@ -95,7 +126,7 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
 - (MMOrderedDictionary<EZLanguage, NSString *> *)supportLanguagesDictionary {
     MMOrderedDictionary *orderedDict = [[MMOrderedDictionary alloc] init];
     
-    NSArray<EZLanguage> *allLanguages = [EZLanguageManager allLanguages];
+    NSArray<EZLanguage> *allLanguages = [EZLanguageManager.shared allLanguages];
     for (EZLanguage language in allLanguages) {
         NSString *value = language;
         if ([language isEqualToString:EZLanguageClassicalChinese]) {
@@ -139,15 +170,15 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
         @"stream" : @(YES),
     }.mutableCopy;
     
-    EZQueryServiceType queryServiceType = EZQueryServiceTypeTranslation;
+    EZQueryTextType queryServiceType = EZQueryTextTypeTranslation;
 
-    BOOL enableDictionary = self.queryServiceType & EZQueryServiceTypeDictionary;
+    BOOL enableDictionary = self.queryTextType & EZQueryTextTypeDictionary;
     BOOL isQueryDictionary = NO;
     if (enableDictionary) {
         isQueryDictionary = [EZTextWordUtils shouldQueryDictionary:text language:from];
     }
     
-    BOOL enableSentence = self.queryServiceType & EZQueryServiceTypeSentence;
+    BOOL enableSentence = self.queryTextType & EZQueryTextTypeSentence;
     BOOL isQueryEnglishSentence = NO;
     if (!isQueryDictionary && enableSentence) {
         BOOL isEnglishText = [from isEqualToString:EZLanguageEnglish];
@@ -156,25 +187,25 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
         }
     }
     
-    BOOL enableTranslation = self.queryServiceType & EZQueryServiceTypeTranslation;
+    BOOL enableTranslation = self.queryTextType & EZQueryTextTypeTranslation;
     
     self.result.from = from;
     self.result.to = to;
     
     NSArray<NSDictionary *> *messages = nil;
     if (isQueryDictionary) {
-        queryServiceType = EZQueryServiceTypeDictionary;
+        queryServiceType = EZQueryTextTypeDictionary;
         messages = [self dictMessages:text from:sourceLanguageType to:targetLanguageType];
     } else if (isQueryEnglishSentence) {
-        queryServiceType = EZQueryServiceTypeSentence;
+        queryServiceType = EZQueryTextTypeSentence;
         messages = [self sentenceMessages:text from:sourceLanguageType to:targetLanguageType];
     } else if (enableTranslation) {
-        queryServiceType = EZQueryServiceTypeTranslation;
+        queryServiceType = EZQueryTextTypeTranslation;
         messages = [self translatioMessages:text from:sourceLanguageType to:targetLanguageType];
     }
     parameters[@"messages"] = messages;
     
-    if (queryServiceType != EZQueryServiceTypeNone) {
+    if (queryServiceType != EZQueryTextTypeNone) {
         [self startStreamChat:parameters queryServiceType:queryServiceType completion:^(NSString *_Nullable result, NSError *_Nullable error) {
             [self handleResultText:result error:error queryServiceType:queryServiceType completion:completion];
         }];
@@ -183,19 +214,19 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
 
 - (void)handleResultText:(NSString *)resultText
                    error:(NSError *)error
-        queryServiceType:(EZQueryServiceType)queryServiceType
+        queryServiceType:(EZQueryTextType)queryServiceType
               completion:(void (^)(EZQueryResult *_Nullable, NSError *_Nullable))completion {
     
     NSArray *normalResults = [[resultText trim] toParagraphs];
     
     switch (queryServiceType) {
-        case EZQueryServiceTypeTranslation:
-        case EZQueryServiceTypeSentence: {
+        case EZQueryTextTypeTranslation:
+        case EZQueryTextTypeSentence: {
             self.result.translatedResults = normalResults;
             completion(self.result, error);
             break;
         }
-        case EZQueryServiceTypeDictionary: {
+        case EZQueryTextTypeDictionary: {
             if (error) {
                 self.result.showBigWord = NO;
                 self.result.translateResultsTopInset = 0;
@@ -206,7 +237,7 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
             self.result.translatedResults = normalResults;
             self.result.showBigWord = YES;
             self.result.queryText = self.queryModel.inputText;
-            self.result.translateResultsTopInset = 8;
+            self.result.translateResultsTopInset = 6;
             completion(self.result, error);
             break;
         }
@@ -217,16 +248,10 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
 }
 
 - (void)startStreamChat:(NSDictionary *)parameters
-       queryServiceType:(EZQueryServiceType)queryServiceType
+       queryServiceType:(EZQueryTextType)queryServiceType
              completion:(void (^)(NSString *_Nullable, NSError *_Nullable))completion {
-    // Read openai key from NSUserDefaults
-    NSString *openaiKey = [[NSUserDefaults standardUserDefaults] stringForKey:EZOpenAIAPIKey] ?: @"";
     
-    // Docs: https://platform.openai.com/docs/guides/chat/chat-vs-completions
-    NSDictionary *header = @{
-        @"Content-Type" : @"application/json",
-        @"Authorization" : [NSString stringWithFormat:@"Bearer %@", openaiKey],
-    };
+    NSDictionary *header = [self requestHeader];
     //    NSLog(@"messages: %@", messages);
     
     BOOL stream = YES;
@@ -246,7 +271,7 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
     }];
     
     BOOL shouldHandleQuote = NO;
-    if (queryServiceType == EZQueryServiceTypeTranslation) {
+    if (queryServiceType == EZQueryTextTypeTranslation) {
         shouldHandleQuote = YES;
     }
     
@@ -300,7 +325,7 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
                 } else {
                     // [DONE], end of string.
                     if (![EZTextWordUtils hasSuffixQuote:self.queryModel.inputText]) {
-                        appendContent = [EZTextWordUtils tryToRemoveSuffixQuote:content];
+                        appendContent = [EZTextWordUtils tryToRemoveSuffixQuote:appendContent];
                     } else if (appendSuffixQuote) {
                         appendContent = [content stringByAppendingString:appendSuffixQuote];
                     }
@@ -321,11 +346,11 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
                 completion(mutableString, nil);
             }
             
-            //  NSLog(@"mutableString: %@", mutableString);
+//              NSLog(@"mutableString: %@", mutableString);
         }];
     }
     
-    NSString *url = [NSString stringWithFormat:@"https://%@/v1/chat/completions", self.domain];
+    NSString *url = [self requestUrlWithDefaultFormatUrl:nil];
     NSURLSessionTask *task = [manager POST:url parameters:parameters progress:nil success:^(NSURLSessionDataTask *_Nonnull task, id _Nullable responseObject) {
         if ([self.queryModel isServiceStopped:self.serviceType]) {
             return;
@@ -460,15 +485,12 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
 
 /// Chat using gpt-3.5, response so quickly, generally less than 3s.
 - (void)startChat:(NSArray<NSDictionary *> *)messages completion:(void (^)(NSString *_Nullable, NSError *_Nullable))completion {
-    // Read openai key from NSUserDefaults
-    NSString *openaiKey = [[NSUserDefaults standardUserDefaults] stringForKey:EZOpenAIAPIKey] ?: @"";
-    
-    NSDictionary *header = @{
-        @"Content-Type" : @"application/json",
-        @"Authorization" : [NSString stringWithFormat:@"Bearer %@", openaiKey],
+    NSMutableDictionary *header = [self requestHeader].mutableCopy;
+    [header addEntriesFromDictionary:@{
         @"Accept" : @"text/event-stream",
         @"Cache-Control" : @"no-cache",
-    };
+    }];
+    header = header.copy;
     
     BOOL stream = YES;
     
@@ -484,8 +506,7 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
         @"stream" : @(stream),
     };
     
-    NSString *url = [NSString stringWithFormat:@"https://%@/v1/chat/completions", self.domain];
-
+    NSString *url = [self requestUrlWithDefaultFormatUrl:nil];
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:[NSURL URLWithString:url]];
     request.HTTPMethod = @"POST";
     request.allHTTPHeaderFields = header;
@@ -564,13 +585,7 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
 
 /// Completion, Ref: https://github.com/yetone/bob-plugin-openai-translator/blob/main/src/main.js and https://github.com/scosman/voicebox/blob/9f65744ef9182f5bfad6ed29ddcd811bd8b1f71e/ios/voicebox/Util/OpenApiRequest.m
 - (void)startCompletion:(NSString *)prompt completion:(void (^)(NSString *_Nullable, NSError *_Nullable))completion {
-    // Read openai key from NSUserDefaults
-    NSString *openaiKey = [[NSUserDefaults standardUserDefaults] stringForKey:EZOpenAIAPIKey] ?: @"";
-    
-    NSDictionary *header = @{
-        @"Content-Type" : @"application/json",
-        @"Authorization" : [NSString stringWithFormat:@"Bearer %@", openaiKey],
-    };
+    NSDictionary *header = [self requestHeader];
     // Docs: https://platform.openai.com/docs/api-reference/completions
     NSDictionary *body = @{
         @"model" : @"text-davinci-003",
@@ -582,7 +597,8 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
         //        @"presence_penalty" : @(1),
     };
     
-    NSString *url = [NSString stringWithFormat:@"https://%@/v1/completions", self.domain];
+    
+    NSString *url = [self requestUrlWithDefaultFormatUrl:@"https://%@/v1/completions"];
 
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:[NSURL URLWithString:url]];
     request.HTTPMethod = @"POST";
@@ -704,14 +720,14 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
 
 /// Sentence messages.
 - (NSArray<NSDictionary *> *)sentenceMessages:(NSString *)sentence from:(EZLanguage)sourceLanguage to:(EZLanguage)targetLanguage {
-    NSString *answerLanguage = [EZLanguageManager firstLanguage];
+    NSString *answerLanguage = [EZLanguageManager.shared userFirstLanguage];
     self.result.to = answerLanguage;
     
     NSString *prompt = @"";
     NSString *keyWords = @"Key Words";
     NSString *grammarParse = @"Grammar Parsing";
     NSString *inferenceTranslation = @"Inferential Translation";
-    if ([EZLanguageManager isChineseLanguage:answerLanguage]) {
+    if ([EZLanguageManager.shared isChineseLanguage:answerLanguage]) {
         keyWords = @"重点词汇";
         grammarParse = @"语法分析";
         inferenceTranslation = @"推理翻译";
@@ -739,7 +755,7 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
      Improving the country's economy is a political imperative for the new president.
      I must dash off this letter before the post is collected.
      */
-    NSString *keyWordsPrompt = [NSString stringWithFormat:@"1. List the key words and phrases in the sentence, no more than 5 key words, and look up all parts of speech and meanings of each key word, and point out its actual meaning in this sentence in detail, desired format: \"%@:\n xxx \", \n\n", keyWords];
+    NSString *keyWordsPrompt = [NSString stringWithFormat:@"1. List the key words and phrases in the sentence, no more than 6 key words, and look up all parts of speech and meanings of each key word, and point out its actual meaning in this sentence in detail, desired format: \"%@:\n xxx \", \n\n", keyWords];
     prompt = [prompt stringByAppendingString:keyWordsPrompt];
     
     NSString *grammarParsePrompt = [NSString stringWithFormat:@"2. Analyze the grammatical structure of this sentence, desired format: \"%@:\n xxx \", \n\n", grammarParse];
@@ -854,7 +870,7 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
     ];
     NSMutableArray *messages = [NSMutableArray arrayWithArray:systemMessages];
     
-    if ([EZLanguageManager isChineseLanguage:answerLanguage]) {
+    if ([EZLanguageManager.shared isChineseLanguage:answerLanguage]) {
         [messages addObjectsFromArray:chineseFewShot];
     } else {
         [messages addObjectsFromArray:englishFewShot];
@@ -874,7 +890,7 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
     // V5. prompt
     NSString *prompt = @"";
     
-    NSString *answerLanguage = [EZLanguageManager firstLanguage];
+    NSString *answerLanguage = [EZLanguageManager.shared userFirstLanguage];
     self.result.to = answerLanguage;
     
     NSString *pronunciation = @"Pronunciation";
@@ -885,6 +901,8 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
     NSString *cognate = @"Cognate";
     NSString *synonym = @"Synonym";
     NSString *antonym = @"Antonym";
+    NSString *commonPhrases = @"common Phrases";
+    NSString *exampleSentence = @"Example sentence";
     
     BOOL isEnglishWord = NO;
     BOOL isEnglishPhrase = NO;
@@ -894,7 +912,7 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
     }
     
     BOOL isChineseWord = NO;
-    if ([EZLanguageManager isChineseLanguage:sourceLanguage]) {
+    if ([EZLanguageManager.shared isChineseLanguage:sourceLanguage]) {
         isChineseWord = [EZTextWordUtils isChineseWord:word]; // 倾国倾城
     }
     
@@ -910,7 +928,7 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
     NSString *queryWordPrompt = [NSString stringWithFormat:@"Here is a %@ word: \"\"\"%@\"\"\", ", sourceLanguage, word];
     prompt = [prompt stringByAppendingString:queryWordPrompt];
     
-    if ([EZLanguageManager isChineseLanguage:answerLanguage]) {
+    if ([EZLanguageManager.shared isChineseLanguage:answerLanguage]) {
         // ???: wtf, why 'Pronunciation' cannot be auto outputed as '发音'？ So we have to convert it manually 🥹
         pronunciation = @"发音";
         translationTitle = @"翻译";
@@ -920,6 +938,8 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
         cognate = @"同根词";
         synonym = @"近义词";
         antonym = @"反义词";
+        commonPhrases = @"常用短语";
+        exampleSentence = @"例句";
     }
     
     NSString *pronunciationPrompt = [NSString stringWithFormat:@"Look up its pronunciation, desired format: \"%@: / xxx /\" \n", pronunciation];
@@ -966,7 +986,13 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
         
         NSString *antonymsPrompt = [NSString stringWithFormat:@"\nLook up its main <%@> near antonyms, no more than 3, If it has antonyms, show format: \"%@: xxx \" \n", sourceLanguage, antonym];
         prompt = [prompt stringByAppendingString:antonymsPrompt];
+        
+        NSString *phrasePrompt = [NSString stringWithFormat:@"\nLook up its main <%@> phrases, no more than 5, If it has phrases, show format: \"%@: xxx \" \n", sourceLanguage, commonPhrases];
+        prompt = [prompt stringByAppendingString:phrasePrompt];
     }
+    
+    NSString *exampleSentencePrompt = [NSString stringWithFormat:@"\nLook up its main <%@> example sentences, no more than 3, If it has example sentences, use * to mark its specific meaning in the translated sentence of the example sentence, show format: \"%@: xxx \" \n", sourceLanguage, exampleSentence];
+    prompt = [prompt stringByAppendingString:exampleSentencePrompt];
     
     NSString *bracketsPrompt = [NSString stringWithFormat:@"Note that the text between angle brackets <xxx> should not be outputed, it is used to describe and explain. \n"];
     prompt = [prompt stringByAppendingString:bracketsPrompt];
@@ -1003,7 +1029,7 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
             @"content" :
                 @"Using Simplified-Chinese: \n"
                 @"Here is a English word: \"album\" \n"
-                @"Look up its pronunciation, pos and meanings, tenses and forms, explanation, etymology, how to remember, cognates, synonyms, antonyms."
+                @"Look up its pronunciation, pos and meanings, tenses and forms, explanation, etymology, how to remember, cognates, synonyms, antonyms, phrases, example sentences."
         },
         @{
             @"role" : @"assistant",
@@ -1017,14 +1043,23 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
             "n. almanac 年历，历书 \n"
             "n. anthology 选集，文选 \n\n"
             "近义词：record, collection, compilation \n"
-            "反义词：dispersal, disarray, disorder",
+            "反义词：dispersal, disarray, disorder\n\n"
+            "常用短语：\n"
+            "1. White Album: 白色相簿\n"
+            "2. photo album: 写真集；相册；相簿\n"
+            "3. debut album: 首张专辑\n"
+            "4. album cover: 专辑封面\n\n"
+            "例句：\n"
+            "1. Their new album is dynamite.\n（他们的*新唱*引起轰动。）\n"
+            "2. I stuck the photos into an album.\n（我把照片贴到*相册*上。）\n"
+            "3. Their new album is their doomiest.\n（他们的新*专辑*是他们最失败的作品。）\n"
         },
         @{
             @"role" : @"user", // raven
             @"content" :
                 @"Using Simplified-Chinese: \n"
                 @"Here is a English word: \"raven\" \n"
-                @"Look up its pronunciation, pos and meanings, tenses and forms, explanation, etymology, how to remember, cognates, synonyms, antonyms."
+                @"Look up its pronunciation, pos and meanings, tenses and forms, explanation, etymology, how to remember, cognates, synonyms, antonyms, phrases, example sentences."
         },
         @{
             @"role" : @"assistant",
@@ -1047,14 +1082,21 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
             "vi. ravage 毁坏；掠夺 \n"
             "vt. ravage 毁坏；破坏；掠夺 \n\n"
             "近义词: seize, blackbird \n"
-            "反义词：protect, guard, defend"
+            "反义词：protect, guard, defend \n\n"
+            "常用短语：\n"
+            "1. Raven paradox: 乌鸦悖论\n"
+            "2. raven hair: 乌黑的头发\n"
+            "3. The Raven: 乌鸦；魔鸟\n\n"
+            "例句：\n"
+            "1. She has long raven hair.\n（她有一头*乌黑的*长头发。）\n"
+            "2. The raven is often associated with death and the supernatural.\n（*乌鸦*常常与死亡和超自然现象联系在一起。）\n"
         },
         @{  //  By default, only uppercase abbreviations are valid in JS, so we need to add a lowercase example.
             @"role" : @"user", // js
             @"content" :
                 @"Using Simplified-Chinese: \n"
                 @"Here is a English word: \"js\" \n"
-                @"Look up its pronunciation, pos and meanings, tenses and forms, explanation, etymology, how to remember, cognates, synonyms, antonyms."
+                @"Look up its pronunciation, pos and meanings, tenses and forms, explanation, etymology, how to remember, cognates, synonyms, antonyms, phrases, example sentences."
         },
         @{
             @"role" : @"assistant",
@@ -1064,6 +1106,8 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
                 @"Explanation: xxx \n\n"
                 @"Etymology: xxx \n\n"
                 @"Synonym: xxx \n\n"
+                @"Phrases: xxx \n\n"
+                @"Example Sentences: xxx \n\n"
         },
         //        @{
         //            @"role" : @"user", // acg, This is a necessary few-shot for some special abbreviation.
@@ -1089,7 +1133,7 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
             @"content" :
                 @"Using English: \n"
                 @"Here is a English word: \"raven\" \n"
-                @"Look up its pronunciation, pos and meanings, tenses and forms, explanation, etymology, how to remember, cognates, synonyms, antonyms."
+                @"Look up its pronunciation, pos and meanings, tenses and forms, explanation, etymology, how to remember, cognates, synonyms, antonyms, phrases, example sentences."
         },
         @{
             @"role" : @"assistant",
@@ -1104,14 +1148,16 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
             "How to remember: xxx \n\n"
             "Cognates: xxx \n\n"
             "Synonyms: xxx \n"
-            "Antonyms: xxx",
+            "Antonyms: xxx \n\n"
+            "Phrases: xxx \n\n"
+            "Example Sentences: xxx \n\n"
         },
         @{
             @"role" : @"user", // acg, This is a necessary few-shot for some special abbreviation.
             @"content" :
                 @"Using English: \n"
                 @"Here is a English word abbreviation: \"acg\" \n"
-                @"Look up its pronunciation, pos and meanings, tenses and forms, explanation, etymology, how to remember, cognates, synonyms, antonyms."
+                @"Look up its pronunciation, pos and meanings, tenses and forms, explanation, etymology, how to remember, cognates, synonyms, antonyms, phrases, example sentences."
         },
         @{
             @"role" : @"assistant",
@@ -1122,7 +1168,9 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
             "How to remember: xxx \n\n"
             "Cognates: xxx \n\n"
             "Synonyms: xxx \n"
-            "Antonyms: xxx",
+            "Antonyms: xxx \n\n"
+            "Phrases: xxx \n\n"
+            "Example Sentences: xxx \n\n"
         },
     ];
     
@@ -1134,7 +1182,7 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
     ];
     NSMutableArray *messages = [NSMutableArray arrayWithArray:systemMessages];
     
-    if ([EZLanguageManager isChineseLanguage:answerLanguage]) {
+    if ([EZLanguageManager.shared isChineseLanguage:answerLanguage]) {
         [messages addObjectsFromArray:chineseFewShot];
     } else {
         [messages addObjectsFromArray:englishFewShot];
@@ -1300,7 +1348,7 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
 - (NSArray<NSDictionary *> *)jsonDictPromptMessages:(NSString *)word from:(EZLanguage)sourceLanguage to:(EZLanguage)targetLanguage {
     NSString *prompt = @"";
     
-    NSString *answerLanguage = [EZLanguageManager firstLanguage];
+    NSString *answerLanguage = [EZLanguageManager.shared userFirstLanguage];
     NSString *translationLanguageTitle = targetLanguage;
     
     BOOL isEnglishWord = NO;
@@ -1309,13 +1357,13 @@ static NSString *kTranslationSystemPrompt = @"You are a translation expert profi
     }
     
     BOOL isChineseWord = NO;
-    if ([EZLanguageManager isChineseLanguage:sourceLanguage]) {
+    if ([EZLanguageManager.shared isChineseLanguage:sourceLanguage]) {
         isChineseWord = [EZTextWordUtils isChineseWord:word]; // 倾国倾城
     }
     
     BOOL isWord = isEnglishWord || isChineseWord;
     
-    if ([EZLanguageManager isChineseLanguage:targetLanguage]) {
+    if ([EZLanguageManager.shared isChineseLanguage:targetLanguage]) {
         translationLanguageTitle = @"中文";
     }
     

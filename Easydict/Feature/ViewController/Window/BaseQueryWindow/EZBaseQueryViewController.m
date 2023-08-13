@@ -496,6 +496,12 @@ static void dispatch_block_on_main_safely(dispatch_block_t block) {
     [self.inputText copyAndShowToast:YES];
 }
 
+- (void)copyFirstTranslatedText {
+    if (self.firstService) {
+        [self.firstService.result.translatedText copyAndShowToast:YES];
+    }
+}
+
 - (void)toggleTranslationLanguages {
     [self.selectLanguageCell toggleTranslationLanguages];
 }
@@ -600,7 +606,7 @@ static void dispatch_block_on_main_safely(dispatch_block_t block) {
 
     self.firstService = nil;
     for (EZQueryService *service in self.services) {
-        BOOL enableAutoQuery = service.enabledQuery && (service.serviceUsageStatus != EZServiceUsageStatusAlwaysOff);
+        BOOL enableAutoQuery = service.enabledQuery && service.enabledAutoQuery;
         if (!enableAutoQuery) {
             NSLog(@"service disabled: %@", service.serviceType);
             continue;;
@@ -637,8 +643,7 @@ static void dispatch_block_on_main_safely(dispatch_block_t block) {
         }
         result.error = error;
         
-        BOOL unsupportLanguageError = (result.errorType == EZErrorTypeUnsupportedLanguage && error);
-        BOOL hideResult = !result.manulShow && !result.hasTranslatedResult && unsupportLanguageError;
+        BOOL hideResult = !result.manulShow && !result.hasTranslatedResult && result.isWarningErrorType;
         if (hideResult) {
             result.isShowing = NO;
         }
@@ -817,7 +822,14 @@ static void dispatch_block_on_main_safely(dispatch_block_t block) {
 - (void)updateCellWithResults:(NSArray<EZQueryResult *> *)results reloadData:(BOOL)reloadData completionHandler:(void (^)(void))completionHandler {
     NSMutableIndexSet *rowIndexes = [NSMutableIndexSet indexSet];
     for (EZQueryResult *result in results) {
-        result.isLoading = NO;
+
+        // !!!: Render webView html takes a little time(~0.5s), so we stop loading when webView finished loading.
+        BOOL isFinished = YES;
+        if (result.HTMLString.length) {
+            isFinished = NO;
+        }
+        result.isLoading = !isFinished;
+        
         NSIndexSet *indexSet = [self indexSetOfResult:result];
         if (indexSet) {
             [rowIndexes addIndexes:indexSet];

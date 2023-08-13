@@ -17,15 +17,33 @@ static NSDictionary *const kQuotesDict = @{
 
 @implementation EZTextWordUtils
 
+
 #pragma mark - Check if text is a word, or phrase
 
-/// If text is a Chinese or English word or phrase, need query dict.
+
+/// Get query type of text.
++ (EZQueryTextType)queryTypeOfText:(NSString *)text language:(EZLanguage)langugae {
+    BOOL isQueryDictionary = [self shouldQueryDictionary:text language:langugae];
+    if (isQueryDictionary) {
+        return EZQueryTextTypeDictionary;
+    }
+    
+    BOOL isEnglishText = [langugae isEqualToString:EZLanguageEnglish];
+    BOOL isQueryEnglishSentence = [self shouldQuerySentence:text language:langugae];
+    if (isQueryEnglishSentence && isEnglishText) {
+        return EZQueryTextTypeSentence;
+    }
+    
+    return EZQueryTextTypeTranslation;
+}
+
+/// If text is a Chinese or English word or phrase, need to query dict.
 + (BOOL)shouldQueryDictionary:(NSString *)text language:(EZLanguage)langugae {
     if (text.length > EZEnglishWordMaxLength) {
         return NO;
     }
     
-    if ([EZLanguageManager isChineseLanguage:langugae]) {
+    if ([EZLanguageManager.shared isChineseLanguage:langugae]) {
         return [self isChineseWord:text] || [self isChinesePhrase:text];
     }
     
@@ -316,8 +334,10 @@ static NSDictionary *const kQuotesDict = @{
 
 /// Remove Prefix quotes
 + (NSString *)tryToRemovePrefixQuote:(NSString *)text {
-    if ([self prefixQuoteOfText:text]) {
-        return [text substringFromIndex:1];
+    NSString *prefixQuote = [self prefixQuoteOfText:text];
+    if (prefixQuote) {
+        NSString *newText = [text substringFromIndex:prefixQuote.length];
+        return newText;
     }
     
     return text;
@@ -325,8 +345,10 @@ static NSDictionary *const kQuotesDict = @{
 
 /// Remove Suffix quotes
 + (NSString *)tryToRemoveSuffixQuote:(NSString *)text {
-    if ([self suffixQuoteOfText:text]) {
-        return [text substringToIndex:text.length - 1];
+    NSString *suffixQuote = [self suffixQuoteOfText:text];
+    if (suffixQuote) {
+        NSString *newText = [text substringToIndex:text.length - suffixQuote.length];
+        return newText;
     }
     
     return text;

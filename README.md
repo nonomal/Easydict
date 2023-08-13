@@ -3,25 +3,26 @@
   <h1 align="center">Easydict</h1>
   <h4 align="center"> Easy to look up words or translate text</h4>
 <p align="center"> 
-<a href="https://github.com/tisfeng/Easydict/blob/main/docs/README_EN.md">
-        <img src="https://img.shields.io/badge/%E8%8B%B1%E6%96%87-English-green"
-            alt="English README"></a>
-<a href="https://github.com/tisfeng/Easydict/blob/main/README.md">
-        <img src="https://img.shields.io/badge/%E4%B8%AD%E6%96%87-Chinese-green"
-            alt="中文 README"></a>
 <a href="https://github.com/tisfeng/easydict/blob/main/LICENSE">
-        <img src="https://img.shields.io/github/license/tisfeng/easydict"
+<img src="https://img.shields.io/github/license/tisfeng/easydict"
             alt="License"></a>
 <a href="https://github.com/tisfeng/Easydict/releases">
-        <img src="https://img.shields.io/github/downloads/tisfeng/easydict/total.svg"
+<img src="https://img.shields.io/github/downloads/tisfeng/easydict/total.svg"
             alt="Downloads"></a>
+<a href="https://img.shields.io/badge/-macOS-black?&logo=apple&logoColor=white">
+<img src="https://img.shields.io/badge/-macOS-black?&logo=apple&logoColor=white"
+            alt="macOS"></a>  
 </p>
 
-## [中文介绍](../README.md) | [English](./docs/README_EN.md)
+<div align="center">
+<a href="./README.md">中文</a> &nbsp;&nbsp;|&nbsp;&nbsp; <a href="./README_EN.md">English</a>
+</div>
 
-`Easydict` 是一个简洁易用的翻译词典 macOS App，能够轻松优雅地查找单词或翻译文本。Easydict 开箱即用，能自动识别输入文本语言，支持输入翻译，划词翻译和 OCR 截图翻译，可同时查询多个翻译服务结果，目前支持[有道词典](https://www.youdao.com/)，🍎**苹果系统翻译**，[DeepL](https://www.deepl.com/translator)，[谷歌](https://translate.google.com)，[百度](https://fanyi.baidu.com/)和[火山翻译](https://translate.volcengine.com/translate)。
+## Easydict
 
-![Log](https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/Log-1686534936.png)
+`Easydict` 是一个简洁易用的词典翻译 macOS App，能够轻松优雅地查找单词或翻译文本。Easydict 开箱即用，能自动识别输入文本语言，支持输入翻译，划词翻译和 OCR 截图翻译，可同时查询多个翻译服务结果，目前支持[有道词典](https://www.youdao.com/)，🍎**苹果系统翻译**，[DeepL](https://www.deepl.com/translator)，[谷歌](https://translate.google.com)，[百度](https://fanyi.baidu.com/)和[火山翻译](https://translate.volcengine.com/translate)。
+
+![Log](https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/Log-1688378715.png)
 
 <table>
     <td> <img src="https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/iShot_2023-05-28_16.32.18-1685262784.png">
@@ -54,7 +55,7 @@ _**如果觉得这个应用还不错，给个 [Star](https://github.com/tisfeng/
 
 ## 目录
 
-- [中文介绍 | English README](#中文介绍--english-readme)
+- [Easydict](#easydict)
 - [功能](#功能)
 - [目录](#目录)
 - [安装](#安装)
@@ -63,8 +64,8 @@ _**如果觉得这个应用还不错，给个 [Star](https://github.com/tisfeng/
   - [开发者构建](#开发者构建)
   - [签名问题 ⚠️](#签名问题-️)
 - [使用](#使用)
-  - [鼠标取词](#鼠标取词)
-  - [注意事项](#注意事项)
+  - [鼠标划词](#鼠标划词)
+  - [关于权限](#关于权限)
 - [OCR](#ocr)
 - [语种识别](#语种识别)
 - [翻译服务](#翻译服务)
@@ -102,11 +103,25 @@ brew install easydict
 
 如果你是一名开发者，或者对这个项目感兴趣，也可以尝试手动构建运行，整个过程非常简单，甚至不需懂 macOS 开发知识。
 
+<details> <summary> 构建步骤： </summary>
+
+<p>
+
 只需要下载这个 Repo，然后使用 [Xcode](https://developer.apple.com/xcode/) 打开 `Easydict.xcworkspace` 文件（⚠️ 不是 `Easydict.xcodeproj`!），`Cmd + R` 编译运行即可。
 
 如果编译出现签名错误，请在 target 的 `Signing & Capabilities` 页面改用你自己的开发者账号。如果你还不是苹果开发者，只要去 https://developer.apple.com/ 免费注册一下就可以。
 
+如果不想注册苹果开发者，也可以用自动签名方式运行，参考下面截图，将 `Team` 改为 None，`Signing Certificate` 设置为 Sign to Run Locally，注意两个 target 都要改。
+
+<div>
+  <img src="https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/iShot_2023-06-22_16.06.35-1687421213.png" width="100%" />
+</div>
+
 构建环境：Xcode 13+, macOS Big Sur 11.3+。 为避免不必要的问题，建议使用最新的 Xcode 和 macOS 版本 https://github.com/tisfeng/Easydict/issues/79
+
+</p>
+
+</details>
 
 ### 签名问题 ⚠️
 
@@ -118,7 +133,7 @@ Easydict 是开源软件，本身是安全的，但由于苹果严格的检查�
 
 > 无法打开“Easydict.dmg”，因为它来自身份不明的开发者。
 
-<div >
+<div>
     <img src="https://user-images.githubusercontent.com/25194972/219873635-46e9d318-7237-462b-be69-44ad7a3ea760.png" width="30%">
     <img src="https://user-images.githubusercontent.com/25194972/219873670-7ce67946-87c2-4d45-84fd-3cc59936f7be.png" width="30%">
     <img src="https://user-images.githubusercontent.com/25194972/219873722-2e780565-fe26-4ce3-9648-f1cbdd393843.png" width="30%">
@@ -157,13 +172,22 @@ Easydict 启动之后，除了应用主界面（默认隐藏），还会有一�
 | 静默截图 OCR   | 按下静默截图快捷键（默认 `⌥ + ⇧ + S`），截取需要 OCR 的区域，截图 OCR 结果将自动保存到剪贴板 | ![屏幕录制2023-05-20 22 39 11](https://github.com/Jerry23011/Easydict/assets/89069957/c16f3c20-1748-411e-be04-11d8fe0e61af)                    |
 |                |
 
-### 鼠标取词
+### 鼠标划词
 
-目前支持多种鼠标快捷取词方式：双击取词、鼠标滑动取词、三击取词（段落）和 Shift 取词（多段落），在某些应用中【鼠标滑动取词】可能会失败，此时可换其他取词方式。
+目前支持多种鼠标快捷划词方式：双击划词、鼠标滑动划词、三击划词（段落）和 Shift 划词（多段落），在某些应用中【鼠标滑动划词】可能会失败，此时可换其他划词方式。
 
-快捷键取词在任意应用中都可以正常工作。如遇到不能取词的应用，可提 issue 解决 https://github.com/tisfeng/Easydict/issues/84
+快捷键划词在任意应用中都可以正常工作。如遇到不能鼠标划词的应用，可提 issue 解决 https://github.com/tisfeng/Easydict/issues/84
 
-### 注意事项
+划词功能流程：Accessibility > AppleScript > 模拟快捷键，优先使用辅助功能 Accessibility 取词，在 Accessibility 取词失败（未授权或应用不支持）时，如果是浏览器应用（如 Safari, Chrome），会尝试使用 AppleScript 取词。若 AppleScript 取词还是失败，最后则进行强制取词——模拟快捷键 Cmd+C 取词。
+
+因此，建议开启浏览器中的 `允许 Apple 事件中的 JavaScript` 选项，这样可以避免某些网页的事件拦截，例如这种 [网页强制附带版权信息](https://github.com/tisfeng/Easydict/issues/85) 问题，优化取词体验。对于 Safari 用户，强烈建议开启该选项，因为 Safari 不支持 Accessibility 取词，而 AppleScript 取词体验远优于模拟快捷键取词。
+
+<div>
+    <img src="https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/image-20230708115811617-1688788691.png" width="45%">
+    <img src="https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/image-20230708115827839-1688788707.png" width="45%">
+</div>
+
+### 关于权限
 
 1. 划词翻译，需要开启 `辅助功能` 权限，鼠标划词功能仅在第一次使用时会触发申请辅助功能权限，授权后才能正常使用自动划词翻译功能。
 
@@ -177,7 +201,7 @@ Easydict 启动之后，除了应用主界面（默认隐藏），还会有一�
 
 ## 语种识别
 
-目前支持系统语种识别，百度和 Google 语种识别三种，但考虑到在线识别的速度问题以及不稳定性（ Google 还需要翻墙），其他两种识别服务只用于辅助优化。
+目前支持系统语种识别，百度和 Google 语种识别三种，但考虑到在线识别的速度问题以及不稳定性（Google 还需要翻墙），其他两种识别服务只用于辅助优化。
 
 默认使用系统语种识别，经调教后，系统语种识别的准确率已经很高了，能够满足大部分用户的需求。
 
@@ -250,9 +274,9 @@ Easydict 启动之后，除了应用主界面（默认隐藏），还会有一�
 
 ### DeepL 翻译
 
-DeepL 网页免费版有频率限制，很容易触发 429 报错，因此 1.3.0 版本增加了对 DeepL 官方 API 支持，暂时还没写界面，需通过命令方式启用。
+DeepL 免费版网页 API 对用户单个 IP 有频率限制，频繁使用会触发 429 too many requests 报错，因此 1.3.0 版本增加了对 DeepL 官方 API 的支持，暂时还没写界面，需通过命令方式启用。
 
-如果你有 DeepL AuthKey，建议使用个人的 AuthKey，这样可以避免频率限制， 用户体验会更好。
+如果你有 DeepL AuthKey，建议使用个人的 AuthKey，这样可以避免频率限制，用户体验会更好。如果没有，可以使用切换代理 IP 的方式来规避 429 报错。
 
 #### 配置 AuthKey
 
@@ -311,8 +335,8 @@ easydict://writeKeyValue?EZDeepLTranslationAPIKey=2
 
 Easydict 有 3 种窗口类型，可以分别为它们设置不同的服务。
 
-- 迷你窗口：鼠标自动取词时显示。
-- 侧悬浮窗口：快捷键取词和截图翻译时显示。
+- 迷你窗口：鼠标自动划词时显示。
+- 侧悬浮窗口：快捷键划词和截图翻译时显示。
 - 主窗口：默认关闭，可在设置中开启，程序启动时显示。（稍后会增强主窗口功能）
 
 ![iShot_2023-01-20_11.47.34-1674186506](https://raw.githubusercontent.com/tisfeng/ImageBed/main/uPic/iShot_2023-01-20_11.47.34-1674186506.png)
@@ -370,7 +394,7 @@ Easydict 有一些应用内快捷键，方便你在使用过程中更加高效�
 
 ## 初衷
 
-查询单词和翻译文本，是日常生活非常实用的功能，我用过很多翻译词典软件，但都不满意，直到遇见了 Bob。[`Bob`](https://bobtranslate.com/) 是一款优秀的翻译软件，但它不是开源软件，自从上架苹果商店后也不再免费提供应用更新。
+查询单词和翻译文本，是日常生活非常实用的功能，我用过很多词典翻译软件，但都不满意，直到遇见了 Bob。[`Bob`](https://bobtranslate.com/) 是一款优秀的翻译软件，但它不是开源软件，自从上架苹果商店后也不再免费提供应用更新。
 
 作为一名开发者，也是众多开源软件的受益者，我觉得，这世界上应该存在一个免费开源版本的 [Bob](https://github.com/ripperhe/Bob)，于是我开发了 [Easydict](https://github.com/tisfeng/Easydict)。现在，我每天都在大量使用 Easydict，我很喜欢它，也希望能够让更多的人了解它、使用它。
 
@@ -380,7 +404,7 @@ Easydict 有一些应用内快捷键，方便你在使用过程中更加高效�
 
 - 这个项目的灵感来自 [saladict](https://github.com/crimx/ext-saladict) 和 [Bob](https://github.com/ripperhe/Bob)，且初始版本是以 [Bob (GPL-3.0)](https://github.com/1xiaocainiao/Bob) 为基础开发。Easydict 在原项目上进行了许多改进和优化，很多功能和 UI 都参考了 Bob。
 - 截图功能是基于 [isee15](https://github.com/isee15) 的 [Capture-Screen-For-Multi-Screens-On-Mac](https://github.com/isee15/Capture-Screen-For-Multi-Screens-On-Mac)，并在此基础上进行了优化。
-- 鼠标取词功能参考了 [PopClip](https://pilotmoon.com/popclip/)。
+- 鼠标划词功能参考了 [PopClip](https://pilotmoon.com/popclip/)。
 
 ## 声明
 
@@ -400,12 +424,24 @@ Easydict 作为一个免费开源的非盈利项目，目前主要是作者个�
 
 ### 赞助列表
 
-|  **日期**  | **用户** | **金额** |                                                     **留言**                                                      |
-| :--------: | :------: | :------: | :---------------------------------------------------------------------------------------------------------------: |
-| 2023-05-22 |    🍑    |    50    |                                                     感谢开源                                                      |
-| 2023-05-22 |    -     |   200    |                                                                                                                   |
-| 2023-05-22 |    -     |   150    |                                                                                                                   |
-| 2023-05-24 |   陈佩   |    50    | 加油 有没有可能有 Linux 版？（[暂时没有](https://github.com/tisfeng/Easydict/issues/57#issuecomment-1555913845)） |
-| 2023-05-27 |  自由。  |   100    |                                                       感谢                                                        |
-| 2023-06-01 | 梦遇 | 10 | 感谢 |
-| 2023-06-05 | 挨揍的免子 | 1 | 谢谢🙏 |
+如果不希望用户名显示在列表中，请选择匿名方式。
+
+|  **日期**  |     **用户**      | **金额** |                                                          **留言**                                                           |
+| :--------: | :---------------: | :------: | :-------------------------------------------------------------------------------------------------------------------------: |
+| 2023-05-22 |        🍑         |    50    |                                                          感谢开源                                                           |
+| 2023-05-22 |         -         |   200    |                                                                                                                             |
+| 2023-05-22 |         -         |   150    |                                                                                                                             |
+| 2023-05-24 |       陈佩        |    50    |      加油 有没有可能有 Linux 版？（[暂时没有](https://github.com/tisfeng/Easydict/issues/57#issuecomment-1555913845)）      |
+| 2023-05-27 |      自由。       |   100    |                                                            感谢                                                             |
+| 2023-06-01 |       梦遇        |    10    |                                                            感谢                                                             |
+| 2023-06-05 |    挨揍的免子     |    1     |                                                           谢谢 🙏                                                           |
+| 2023-06-17 |       妙才        |    5     |                                                             ❤️                                                              |
+| 2023-06-19 |         1         |    20    | 加油，有没有可能调用 chatgpt 来翻译呀？（参见[#28](https://github.com/tisfeng/Easydict/issues/28#issuecomment-1527827829)） |
+| 2023-06-19 |      许冠英       |   6.6    |                                              感谢开发这么好用的软件，很喜欢。                                               |
+| 2023-06-20 |    lidashuang     |    10    |                                                            感谢                                                             |
+| 2023-07-03 |       小阳        |    2     |                                                                                                                             |
+| 2023-07-06 |                   |    30    |                                                            谢谢                                                             |
+| 2023-07-11 | 清清 🎵 在努力 ✨ |    20    |                                                                                                                             |
+| 2023-07-21 |                   |    50    |                                                             ty                                                              |
+| 2023-07-25 |                   |    10    |                                                          感谢开源                                                           |
+| 2023-08-07 |     guanyuan      |    58    |                                                          开源万岁                                                           |

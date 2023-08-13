@@ -17,13 +17,17 @@
 
 static NSString *const kEasydictHelperBundleId = @"com.izual.EasydictHelper";
 
+static NSString *const kFirstLanguageKey = @"EZConfiguration_kFirstLanguageKey";
+static NSString *const kSecondLanguageKey = @"EZConfiguration_kSecondLanguageKey";
+
+static NSString *const kFromKey = @"EZConfiguration_kFromKey";
+static NSString *const kToKey = @"EZConfiguration_kToKey";
+
 static NSString *const kAutoSelectTextKey = @"EZConfiguration_kAutoSelectTextKey";
 static NSString *const kForceAutoGetSelectedText = @"EZConfiguration_kForceAutoGetSelectedText";
 static NSString *const kDisableEmptyCopyBeepKey = @"EZConfiguration_kDisableEmptyCopyBeepKey";
 static NSString *const kClickQueryKey = @"EZConfiguration_kClickQueryKey";
 static NSString *const kLaunchAtStartupKey = @"EZConfiguration_kLaunchAtStartupKey";
-static NSString *const kFromKey = @"EZConfiguration_kFromKey";
-static NSString *const kToKey = @"EZConfiguration_kToKey";
 static NSString *const kHideMainWindowKey = @"EZConfiguration_kHideMainWindowKey";
 static NSString *const kAutoQueryOCTTextKey = @"EZConfiguration_kAutoQueryOCTTextKey";
 static NSString *const kAutoQuerySelectedTextKey = @"EZConfiguration_kAutoQuerySelectedTextKey";
@@ -68,6 +72,9 @@ static EZConfiguration *_instance;
 }
 
 - (void)setup {
+    self.firstLanguage = [NSUserDefaults mm_read:kFirstLanguageKey];
+    self.secondLanguage = [NSUserDefaults mm_read:kSecondLanguageKey];
+    
     self.from = [NSUserDefaults mm_readString:kFromKey defaultValue:EZLanguageAuto];
     self.to = [NSUserDefaults mm_readString:kToKey defaultValue:EZLanguageAuto];
 
@@ -108,6 +115,18 @@ static EZConfiguration *_instance;
 }
 
 #pragma mark - setter
+
+- (void)setFirstLanguage:(EZLanguage)firstLanguage {
+    _firstLanguage = firstLanguage;
+
+    [NSUserDefaults mm_write:firstLanguage forKey:kFirstLanguageKey];
+}
+
+- (void)setSecondLanguage:(EZLanguage)secondLanguage {
+    _secondLanguage = secondLanguage;
+
+    [NSUserDefaults mm_write:secondLanguage forKey:kSecondLanguageKey];
+}
 
 - (void)setFrom:(EZLanguage)from {
     _from = from;
@@ -169,8 +188,11 @@ static EZConfiguration *_instance;
 
     [NSUserDefaults mm_write:@(hideMainWindow) forKey:kHideMainWindowKey];
     
-    [EZWindowManager.shared showOrHideDockAppAndMainWindow];
-    [EZWindowManager.shared updatePopButtonQueryAction];
+    EZWindowManager *windowManager = EZWindowManager.shared;
+    [windowManager updatePopButtonQueryAction];
+    if (hideMainWindow) {
+        [windowManager closeMainWindowIfNeeded];
+    }
 }
 
 - (void)setAutoQueryOCRText:(BOOL)autoSnipTranslate {
@@ -420,6 +442,81 @@ static EZConfiguration *_instance;
         [statusItem remove];
     } else {
         [statusItem setup];
+    }
+}
+
+
+#pragma mark - Intelligent Query Mode
+
+- (void)setIntelligentQueryMode:(BOOL)enabled windowType:(EZWindowType)windowType {
+    NSString *key = [EZConstKey constkey:EZIntelligentQueryModeKey windowType:windowType];
+    NSString *stringValue = [NSString stringWithFormat:@"%d", enabled];
+    [NSUserDefaults mm_write:stringValue forKey:key];
+}
+- (BOOL)intelligentQueryModeForWindowType:(EZWindowType)windowType {
+    NSString *key = [EZConstKey constkey:EZIntelligentQueryModeKey windowType:windowType];
+    NSString *stringValue = [NSUserDefaults mm_readString:key defaultValue:@"0"];
+    return [stringValue boolValue];
+}
+
+#pragma mark - Query Text Type of Service
+
+- (void)setQueryTextType:(EZQueryTextType)queryTextType serviceType:(EZServiceType)serviceType {
+    // easydict://writeKeyValue?IntelligentQueryMode-window1=1
+    NSString *key = [EZConstKey constkey:EZQueryTextTypeKey serviceType:serviceType];
+    [NSUserDefaults mm_write:@(queryTextType) forKey:key];
+}
+- (EZQueryTextType)queryTextTypeForServiceType:(EZServiceType)serviceType {
+    NSString *key = [EZConstKey constkey:EZQueryTextTypeKey serviceType:serviceType];
+    EZQueryTextType type = [NSUserDefaults mm_readInteger:key defaultValue:0];
+    return type;
+}
+
+#pragma mark - Intelligent Query Text Type of Service
+
+- (void)setIntelligentQueryTextType:(EZQueryTextType)queryTextType serviceType:(EZServiceType)serviceType {
+    NSString *key = [EZConstKey constkey:EZIntelligentQueryTextTypeKey serviceType:serviceType];
+    /**
+     easydict://writeKeyValue?Google-IntelligentQueryTextType=5
+     URL key value is string type, so we need to save vlue as string type.
+     */
+    NSString *stringValue = [NSString stringWithFormat:@"%ld", queryTextType];
+    [NSUserDefaults mm_write:stringValue forKey:key];
+}
+- (EZQueryTextType)intelligentQueryTextTypeForServiceType:(EZServiceType)serviceType {
+    NSString *key = [EZConstKey constkey:EZIntelligentQueryTextTypeKey serviceType:serviceType];
+    NSString *stringValue = [NSUserDefaults mm_readString:key defaultValue:@"111"];
+    // Convert string to int
+    EZQueryTextType type = [stringValue integerValue];
+    return type;
+}
+
+#pragma mark - Beta
+- (void)setBeta:(BOOL)beta {
+    NSString *stringValue = beta ? @"1" : @"0";
+    [NSUserDefaults mm_write:stringValue forKey:EZBetaFeatureKey];
+}
+- (BOOL)isBeta {
+    NSString *stringValue = [NSUserDefaults mm_readString:EZBetaFeatureKey defaultValue:@"0"];
+    BOOL isBeta = [stringValue boolValue];
+    return isBeta;
+}
+
+#pragma mark - Default TTS
+- (void)setDefaultTTSServiceType:(EZServiceType _Nonnull)defaultTTSServiceType {
+    [NSUserDefaults mm_write:defaultTTSServiceType forKey:EZDefaultTTSServiceKey];
+}
+- (EZServiceType)defaultTTSServiceType {
+    return [NSUserDefaults mm_readString:EZDefaultTTSServiceKey defaultValue:EZServiceTypeApple];
+}
+
+
+#pragma mark -
+
+- (void)enableBetaFeaturesIfNeeded {
+    if ([self isBeta]) {
+        [self setIntelligentQueryMode:YES windowType:EZWindowTypeMini];
+        [self setDefaultTTSServiceType:EZServiceTypeYoudao];
     }
 }
 

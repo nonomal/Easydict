@@ -11,11 +11,11 @@
 #import "EZWindowManager.h"
 #import "EZConfiguration.h"
 #import "EZPreferencesWindowController.h"
-#import "EZLog.h"
 #import "EZExeCommand.h"
 #import "EZAudioUtils.h"
 #import "EZCoordinateUtils.h"
 #import "EZToast.h"
+#import "EZLocalStorage.h"
 
 static CGFloat const kDismissPopButtonDelayTime = 0.1;
 static NSTimeInterval const kDelayGetSelectedTextTime = 0.1;
@@ -63,6 +63,8 @@ typedef NS_ENUM(NSUInteger, EZEventMonitorType) {
 
 @property (nonatomic, assign) CFMachPortRef eventTap;
 
+@property (nonatomic, assign) EZTriggerType frontmostAppTriggerType;
+
 @end
 
 
@@ -85,6 +87,55 @@ static EZEventMonitor *_instance = nil;
     return _exeCommand;
 }
 
+- (EZTriggerType)frontmostAppTriggerType {
+    NSArray<EZAppModel *> *defaultAppModelList = [self defaultAppModelList];
+    NSArray<EZAppModel *> *userAppModelList = [EZLocalStorage.shared selectTextTypeAppModelList];
+    
+    self.frontmostApplication = [self getFrontmostApp];
+    NSString *appBundleID = self.frontmostApplication.bundleIdentifier;
+    
+    EZTriggerType defaultType = EZTriggerTypeDoubleClick | EZTriggerTypeTripleClick | EZTriggerTypeDragged | EZTriggerTypeShift;
+    
+    EZTriggerType type = [self getAppSelectTextActionType:appBundleID
+                                             appModelList:defaultAppModelList
+                                              defaultType:defaultType];
+    
+    type = [self getAppSelectTextActionType:appBundleID appModelList:userAppModelList defaultType:type];
+    
+    return type;
+}
+
+- (EZTriggerType)getAppSelectTextActionType:(NSString *)appBundleID
+                               appModelList:(NSArray<EZAppModel *> *)appModelList
+                                defaultType:(EZTriggerType)defaultType {
+    EZTriggerType triggerType = defaultType;
+    for (EZAppModel *appModel in appModelList) {
+        if ([appModel.appBundleID isEqualToString:appBundleID]) {
+            triggerType = appModel.triggerType;
+            NSLog(@"App bundleID: %@, %@", appBundleID, @(triggerType));
+        }
+    }
+    return triggerType;
+}
+
+- (NSArray<EZAppModel *> *)defaultAppModelList {
+    /**
+     FIX https://github.com/tisfeng/Easydict/issues/123
+     
+     And WeChat does not support Shift select text, so please use shortcut key to instead.
+     */
+    EZAppModel *wechat = [[EZAppModel alloc] init];
+    wechat.appBundleID = @"com.tencent.xinWeChat";
+    wechat.triggerType = EZTriggerTypeDoubleClick | EZTriggerTypeTripleClick;
+    
+    NSArray *defaultAppModels = @[
+        wechat,
+    ];
+    
+    return defaultAppModels;
+}
+
+
 - (void)setup {
     _recordEvents = [NSMutableArray array];
     _commandKeyEvents = [NSMutableArray array];
@@ -92,6 +143,7 @@ static EZEventMonitor *_instance = nil;
     self.actionType = EZActionTypeAutoSelectQuery;
     self.selectTextType = EZSelectTextTypeAccessibility;
     self.frontmostApplication = [self getFrontmostApp];
+    self.triggerType = EZTriggerTypeNone;
 }
 
 - (void)addLocalMonitorWithEvent:(NSEventMask)mask handler:(void (^)(NSEvent *_Nonnull))handler {
@@ -139,7 +191,7 @@ static EZEventMonitor *_instance = nil;
 // Monitor global events, Ref: https://blog.csdn.net/ch_soft/article/details/7371136
 - (void)startMonitor {
     [self monitorCGEventTap];
-
+    
     [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent *_Nullable(NSEvent *_Nonnull event) {
         if (event.keyCode == kVK_Escape) { // escape
             NSLog(@"escape");
@@ -157,7 +209,7 @@ static EZEventMonitor *_instance = nil;
 
 - (void)stop {
     [self stopCGEventTap];
-
+    
     if (self.localMonitor) {
         [NSEvent removeMonitor:self.localMonitor];
         self.localMonitor = nil;
@@ -174,7 +226,7 @@ static EZEventMonitor *_instance = nil;
 - (void)monitorCGEventTap {
     // Stop and release the previously created event tap
     [self stopCGEventTap];
-
+    
     // Since NSEvent cannot monitor shortcut event, like Cmd + E, we need to use CGEventTap.
     CGEventMask eventMask = CGEventMaskBit(kCGEventKeyDown);
     
@@ -185,7 +237,7 @@ static EZEventMonitor *_instance = nil;
      */
     CFMachPortRef eventTap = CGEventTapCreate(kCGHIDEventTap, kCGHeadInsertEventTap, kCGEventTapOptionListenOnly, eventMask, eventCallback, NULL);
     self.eventTap = eventTap;
-        
+    
     if (eventTap) {
         // eventTap must not be NULL, otherwise it will crash.
         CFRunLoopSourceRef runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0);
@@ -195,8 +247,7 @@ static EZEventMonitor *_instance = nil;
     }
 }
 
-CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon)
-{
+CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon) {
     if (type == kCGEventKeyDown) {
         //        NSEvent *nsEvent = [NSEvent eventWithCGEvent:event];
         //        NSLog(@"nsEvent: %@", nsEvent);
@@ -277,8 +328,8 @@ CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef eve
                  ???: Why the first time to get text may be nil
                  
                  error: {
-                            "NSAppleScriptErrorNumber" : -1751
-                        }
+                 "NSAppleScriptErrorNumber" : -1751
+                 }
                  */
                 if (error) {
                     getSelectedTextByKeyBlock();
@@ -316,25 +367,34 @@ CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef eve
     self.endPoint = [NSEvent mouseLocation];
     self.frontmostApplication = [self getFrontmostApp];
     
-//    NSString *bundleID = self.frontmostApplication.bundleIdentifier;
-//    [self getBrowserCurrentTabURL:bundleID completion:^(NSString *URLString) {
-//        self.browserTabURLString = URLString;
-//    }];
+    //    NSString *bundleID = self.frontmostApplication.bundleIdentifier;
+    //    [self getBrowserCurrentTabURL:bundleID completion:^(NSString *URLString) {
+    //        self.browserTabURLString = URLString;
+    //    }];
 }
 
 
+/// Auto get selected text.
 - (void)autoGetSelectedText:(BOOL)checkTextFrame {
-    BOOL enableAutoSelectText = EZConfiguration.shared.autoSelectText;
-    if (!enableAutoSelectText) {
-        NSLog(@"user turn off enableAutoSelectText");
-        return;
+    if ([self enabledAutoSelectText]) {
+        self.movedY = 0;
+        self.actionType = EZActionTypeAutoSelectQuery;
+        [self getSelectedText:checkTextFrame completion:^(NSString *_Nullable text) {
+            [self handleSelectedText:text];
+        }];
+    }
+}
+
+- (BOOL)enabledAutoSelectText {
+    EZConfiguration *config = [EZConfiguration shared];
+    BOOL enabled = config.autoSelectText && !config.disabledAutoSelect;
+    if (!enabled) {
+        NSLog(@"disabled autoSelectText");
+        return enabled;
     }
     
-    self.movedY = 0;
-    self.actionType = EZActionTypeAutoSelectQuery;
-    [self getSelectedText:checkTextFrame completion:^(NSString *_Nullable text) {
-        [self handleSelectedText:text];
-    }];
+    
+    return enabled;
 }
 
 - (void)handleSelectedText:(NSString *)text {
@@ -448,7 +508,7 @@ CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef eve
             selectedText = (__bridge NSString *)(selectedTextValue);
             selectedText = [selectedText removeInvisibleChar];
             self.selectedText = selectedText;
-            MMLogInfo(@"--> Accessibility getText: %@", selectedText);
+            MMLogInfo(@"--> Accessibility success, getText: %@", selectedText);
         } else {
             if (getSelectedTextError == kAXErrorNoValue) {
                 MMLogInfo(@"Not support Auxiliary, error: %d", getSelectedTextError);
@@ -515,7 +575,7 @@ CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef eve
 
 /// Check App is trusted, if no, it will prompt user to add it to trusted list.
 - (BOOL)isAccessibilityEnabled {
-    NSDictionary *options = @{ (__bridge NSString *)kAXTrustedCheckOptionPrompt: @(YES) };
+    NSDictionary *options = @{(__bridge NSString *)kAXTrustedCheckOptionPrompt : @(YES)};
     BOOL accessibilityEnabled = AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);
     NSLog(@"accessibilityEnabled: %d", accessibilityEnabled);
     return accessibilityEnabled == YES;
@@ -558,6 +618,7 @@ CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef eve
         @(kAXErrorSuccess) : @[
             @"com.microsoft.VSCode",      // VSCode
             @"com.jetbrains.intellij.ce", // IDEA
+            @"com.foxitsoftware.FoxitReaderLite", // Foxit PDF Reader
         ],
         
         // Some Apps return kAXErrorAttributeUnsupported -25205, but actually has selected text.
@@ -644,44 +705,21 @@ CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef eve
 
 
 - (void)handleMonitorEvent:(NSEvent *)event {
-    //                        NSLog(@"type: %ld", event.type);
+    //  NSLog(@"type: %ld", event.type);
+    
     
     switch (event.type) {
         case NSEventTypeLeftMouseUp: {
-            //  NSLog(@"mouse up");
             if ([self checkIfLeftMouseDragged]) {
-                //   NSLog(@"Dragged selected");
-                [self autoGetSelectedText:YES];
+                self.triggerType = EZTriggerTypeDragged;
+                if (self.frontmostAppTriggerType & self.triggerType) {
+                    [self autoGetSelectedText:YES];
+                }
             }
             break;
         }
         case NSEventTypeLeftMouseDown: {
-            //                NSLog(@"mouse down");
-            
-            self.startPoint = NSEvent.mouseLocation;
-            
-            if (self.mouseClickBlock) {
-                self.mouseClickBlock(self.startPoint);
-            }
-            
-            [self dismissWindowsIfMouseLocationOutsideFloatingWindow];
-            
-            // FIXME: Since use Accessibility to get selected text in Chrome immediately by double click may fail, so we delay a little.
-            
-            // Check if it is a double or triple click.
-            if (event.clickCount == 2) {
-                // Delay more time, in case it is a triple click, we don't want to get selected text twice.
-                [self delayGetSelectedText:0.2];
-            } else if (event.clickCount == 3) {
-                // Cancel former double click selected text.
-                [self cancelDelayGetSelectedText];
-                [self delayGetSelectedText];
-            } else if (event.modifierFlags & NSEventModifierFlagShift) {
-                // Shift + Left mouse button pressed.
-                [self delayGetSelectedText];
-            } else {
-                [self dismissPopButton];
-            }
+            [self handleLeftMouseDownEvent:event];
             break;
         }
         case NSEventTypeLeftMouseDragged: {
@@ -790,6 +828,42 @@ CGEventRef eventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef eve
         }
     }
     return YES;
+}
+
+- (void)handleLeftMouseDownEvent:(NSEvent *)event {
+    self.startPoint = NSEvent.mouseLocation;
+    
+    if (self.mouseClickBlock) {
+        self.mouseClickBlock(self.startPoint);
+    }
+    
+    [self dismissWindowsIfMouseLocationOutsideFloatingWindow];
+    
+    // FIXME: Since use Accessibility to get selected text in Chrome immediately by double click may fail, so we delay a little.
+    
+    // Check if it is a double or triple click.
+    if (event.clickCount == 2) {
+        self.triggerType = EZTriggerTypeDoubleClick;
+        if (self.frontmostAppTriggerType & self.triggerType) {
+            // Delay more time, in case it is a triple click, we don't want to get selected text twice.
+            [self delayGetSelectedText:0.2];
+        }
+    } else if (event.clickCount == 3) {
+        self.triggerType = EZTriggerTypeTripleClick;
+        if (self.frontmostAppTriggerType & self.triggerType) {
+            // Cancel former double click selected text.
+            [self cancelDelayGetSelectedText];
+            [self delayGetSelectedText];
+        }
+    } else if (event.modifierFlags & NSEventModifierFlagShift) {
+        self.triggerType = EZTriggerTypeShift;
+        if (self.frontmostAppTriggerType & self.triggerType) {
+            // Shift + Left mouse button pressed.
+            [self delayGetSelectedText];
+        }
+    } else {
+        [self dismissPopButton];
+    }
 }
 
 - (void)updateCommandKeyEvents:(NSEvent *)event {
@@ -913,7 +987,7 @@ void PostMouseEvent(CGMouseButton button, CGEventType type, const CGPoint point,
 
 // Get the frontmost app
 - (NSRunningApplication *)getFrontmostApp {
-    NSRunningApplication *app = NSWorkspace.sharedWorkspace.frontmostApplication;
+    NSRunningApplication *app = NSWorkspace.sharedWorkspace.frontmostApplication ?: NSRunningApplication.currentApplication;
     return app;
 }
 
@@ -1070,7 +1144,7 @@ void PostMouseEvent(CGMouseButton button, CGEventType type, const CGPoint point,
     NSString *edit;
     
     if (!appLanguage) {
-        appLanguage = [EZLanguageManager firstLanguage];
+        appLanguage = [EZLanguageManager.shared userFirstLanguage];
     }
     
     if ([appLanguage isEqualToString:EZLanguageEnglish]) {

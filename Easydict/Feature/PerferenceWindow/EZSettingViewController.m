@@ -11,8 +11,11 @@
 #import "EZConfiguration.h"
 #import "NSViewController+EZWindow.h"
 #import "EZMenuItemManager.h"
+#import "EZEnumTypes.h"
 
 @interface EZSettingViewController () <NSComboBoxDelegate>
+
+@property (nonatomic, strong) EZConfiguration *config;
 
 @property (nonatomic, strong) NSTextField *selectLabel;
 @property (nonatomic, strong) NSTextField *inputLabel;
@@ -27,6 +30,13 @@
 @property (nonatomic, strong) MASShortcutView *screenshotOCRShortcutView;
 
 @property (nonatomic, strong) NSView *separatorView;
+
+@property (nonatomic, strong) MMOrderedDictionary<EZLanguage, NSString *> *allLanguageDict;
+
+@property (nonatomic, strong) NSTextField *firstLanguageLabel;
+@property (nonatomic, strong) NSPopUpButton *firstLanguagePopUpButton;
+@property (nonatomic, strong) NSTextField *secondLanguageLabel;
+@property (nonatomic, strong) NSPopUpButton *secondLanguagePopUpButton;
 
 @property (nonatomic, strong) NSTextField *autoGetSelectedTextLabel;
 @property (nonatomic, strong) NSButton *showQueryIconButton;
@@ -83,9 +93,26 @@
 
 @implementation EZSettingViewController
 
+- (MMOrderedDictionary<EZLanguage, NSString *> *)allLanguageDict {
+    if (!_allLanguageDict) {
+        MMOrderedDictionary *languageDict = [[MMOrderedDictionary alloc] init];
+        for (EZLanguage language in EZLanguageManager.shared.allLanguages) {
+            if (![language isEqualToString:EZLanguageAuto]) {
+                NSString *showingLanguageName = [EZLanguageManager.shared showingLanguageName:language];
+                [languageDict setObject:showingLanguageName forKey:language];
+            }
+        }
+        _allLanguageDict = languageDict;
+    }
+    return _allLanguageDict;
+}
+
+
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Do view setup here.
+    
+    self.config = [EZConfiguration shared];
     
     [self setupUI];
     
@@ -127,7 +154,7 @@
     self.showMiniShortcutView = [[MASShortcutView alloc] init];
     [self.contentView addSubview:self.showMiniShortcutView];
     
-    if ([EZLanguageManager isEnglishFirstLanguage]) {
+    if ([EZLanguageManager.shared isSystemEnglishFirstLanguage]) {
         self.leftmostView = self.showMiniLabel;
     }
     
@@ -158,6 +185,30 @@
     } dark:^(NSView *view) {
         view.layer.backgroundColor = separatorDarkColor.CGColor;
     }];
+    
+    
+    NSTextField *firstLanguageLabel = [NSTextField labelWithString:NSLocalizedString(@"first_language", nil)];
+    firstLanguageLabel.font = font;
+    [self.contentView addSubview:firstLanguageLabel];
+    self.firstLanguageLabel = firstLanguageLabel;
+    
+    self.firstLanguagePopUpButton = [[NSPopUpButton alloc] init];
+    [self.contentView addSubview:self.firstLanguagePopUpButton];
+    [self.firstLanguagePopUpButton addItemsWithTitles:[self.allLanguageDict sortedValues]];
+    self.firstLanguagePopUpButton.target = self;
+    self.firstLanguagePopUpButton.action = @selector(firstLangaugePopUpButtonClicked:);
+    
+    NSTextField *secondLanguageLabel = [NSTextField labelWithString:NSLocalizedString(@"second_language", nil)];
+    secondLanguageLabel.font = font;
+    [self.contentView addSubview:secondLanguageLabel];
+    self.secondLanguageLabel = secondLanguageLabel;
+    
+    self.secondLanguagePopUpButton = [[NSPopUpButton alloc] init];
+    [self.contentView addSubview:self.secondLanguagePopUpButton];
+    [self.secondLanguagePopUpButton addItemsWithTitles:[self.allLanguageDict sortedValues]];
+    self.secondLanguagePopUpButton.target = self;
+    self.secondLanguagePopUpButton.action = @selector(secondLangaugePopUpButtonClicked:);
+    
     
     NSTextField *showQueryIconLabel = [NSTextField labelWithString:NSLocalizedString(@"auto_get_selected_text", nil)];
     showQueryIconLabel.font = font;
@@ -208,6 +259,7 @@
     
     
     self.languageDetectOptimizePopUpButton = [[NSPopUpButton alloc] init];
+    [self.contentView addSubview:self.languageDetectOptimizePopUpButton];
     
     NSArray *languageDetectOptimizeItems = @[
         NSLocalizedString(@"language_detect_optimize_none", nil),
@@ -215,7 +267,6 @@
         NSLocalizedString(@"language_detect_optimize_google", nil),
     ];
     [self.languageDetectOptimizePopUpButton addItemsWithTitles:languageDetectOptimizeItems];
-    [self.contentView addSubview:self.languageDetectOptimizePopUpButton];
     self.languageDetectOptimizePopUpButton.target = self;
     self.languageDetectOptimizePopUpButton.action = @selector(languageDetectOptimizePopUpButtonClicked:);
     
@@ -226,10 +277,10 @@
     self.fixedWindowPositionLabel = fixedWindowPositionLabel;
     
     self.fixedWindowPositionPopUpButton = [[NSPopUpButton alloc] init];
-    MMOrderedDictionary *fixedWindowPostionDict = [EZLayoutManager.shared fixedWindowPositionDict];
+    [self.contentView addSubview:self.fixedWindowPositionPopUpButton];
+    MMOrderedDictionary *fixedWindowPostionDict = [EZEnumTypes fixedWindowPositionDict];
     NSArray *fixedWindowPositionItems = [fixedWindowPostionDict sortedValues];
     [self.fixedWindowPositionPopUpButton addItemsWithTitles:fixedWindowPositionItems];
-    [self.contentView addSubview:self.fixedWindowPositionPopUpButton];
     self.fixedWindowPositionPopUpButton.target = self;
     self.fixedWindowPositionPopUpButton.action = @selector(fixedWindowPositionPopUpButtonClicked:);
     
@@ -286,7 +337,7 @@
     NSString *autoCopyFirstTranslatedText = NSLocalizedString(@"auto_copy_first_translated_text", nil);
     self.autoCopyFirstTranslatedTextButton = [NSButton checkboxWithTitle:autoCopyFirstTranslatedText target:self action:@selector(autoCopyFirstTranslatedTextButtonClicked:)];
     [self.contentView addSubview:self.autoCopyFirstTranslatedTextButton];
-
+    
     
     NSTextField *showQuickLinkLabel = [NSTextField labelWithString:NSLocalizedString(@"quick_link", nil)];
     showQuickLinkLabel.font = font;
@@ -340,27 +391,28 @@
     [self.contentView addSubview:self.hideMenuBarIconButton];
     
     
-    EZConfiguration *configuration = [EZConfiguration shared];
-    self.showQueryIconButton.mm_isOn = configuration.autoSelectText;
-    self.forceGetSelectedTextButton.mm_isOn = configuration.forceAutoGetSelectedText;
-    self.disableEmptyCopyBeepButton.mm_isOn = configuration.disableEmptyCopyBeep;
-    self.clickQueryButton.mm_isOn = configuration.clickQuery;
-    self.adjustQueryIconPostionButton.mm_isOn = configuration.adjustPopButtomOrigin;
-    [self.languageDetectOptimizePopUpButton selectItemAtIndex:configuration.languageDetectOptimize];
-    [self.fixedWindowPositionPopUpButton selectItemAtIndex:configuration.fixedWindowPosition];
-    self.autoPlayAudioButton.mm_isOn = configuration.autoPlayAudio;
-    self.clearInputButton.mm_isOn = configuration.clearInput;
-    self.launchAtStartupButton.mm_isOn = configuration.launchAtStartup;
-    self.hideMainWindowButton.mm_isOn = configuration.hideMainWindow;
-    self.autoQueryOCRTextButton.mm_isOn = configuration.autoQueryOCRText;
-    self.autoQuerySelectedTextButton.mm_isOn = configuration.autoQuerySelectedText;
-    self.autoQueryPastedTextButton.mm_isOn = configuration.autoQueryPastedText;
-    self.autoCopySelectedTextButton.mm_isOn = configuration.autoCopySelectedText;
-    self.autoCopyOCRTextButton.mm_isOn = configuration.autoCopyOCRText;
-    self.autoCopyFirstTranslatedTextButton.mm_isOn = configuration.autoCopyFirstTranslatedText;
-    self.showGoogleQuickLinkButton.mm_isOn = configuration.showGoogleQuickLink;
-    self.showEudicQuickLinkButton.mm_isOn = configuration.showEudicQuickLink;
-    self.hideMenuBarIconButton.mm_isOn = configuration.hideMenuBarIcon;
+    [self updatePreferredLanguagesPopUpButton];
+    
+    self.showQueryIconButton.mm_isOn = self.config.autoSelectText;
+    self.forceGetSelectedTextButton.mm_isOn = self.config.forceAutoGetSelectedText;
+    self.disableEmptyCopyBeepButton.mm_isOn = self.config.disableEmptyCopyBeep;
+    self.clickQueryButton.mm_isOn = self.config.clickQuery;
+    self.adjustQueryIconPostionButton.mm_isOn = self.config.adjustPopButtomOrigin;
+    [self.languageDetectOptimizePopUpButton selectItemAtIndex:self.config.languageDetectOptimize];
+    [self.fixedWindowPositionPopUpButton selectItemAtIndex:self.config.fixedWindowPosition];
+    self.autoPlayAudioButton.mm_isOn = self.config.autoPlayAudio;
+    self.clearInputButton.mm_isOn = self.config.clearInput;
+    self.launchAtStartupButton.mm_isOn = self.config.launchAtStartup;
+    self.hideMainWindowButton.mm_isOn = self.config.hideMainWindow;
+    self.autoQueryOCRTextButton.mm_isOn = self.config.autoQueryOCRText;
+    self.autoQuerySelectedTextButton.mm_isOn = self.config.autoQuerySelectedText;
+    self.autoQueryPastedTextButton.mm_isOn = self.config.autoQueryPastedText;
+    self.autoCopySelectedTextButton.mm_isOn = self.config.autoCopySelectedText;
+    self.autoCopyOCRTextButton.mm_isOn = self.config.autoCopyOCRText;
+    self.autoCopyFirstTranslatedTextButton.mm_isOn = self.config.autoCopyFirstTranslatedText;
+    self.showGoogleQuickLinkButton.mm_isOn = self.config.showGoogleQuickLink;
+    self.showEudicQuickLinkButton.mm_isOn = self.config.showEudicQuickLink;
+    self.hideMenuBarIconButton.mm_isOn = self.config.hideMenuBarIcon;
 }
 
 - (void)updateViewConstraints {
@@ -423,9 +475,27 @@
         make.height.mas_equalTo(1);
     }];
     
+    [self.firstLanguageLabel mas_remakeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(self.selectLabel);
+        make.top.equalTo(self.separatorView.mas_bottom).offset(1.5 * self.verticalPadding);
+    }];
+    [self.firstLanguagePopUpButton mas_remakeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(self.firstLanguageLabel.mas_right).offset(self.horizontalPadding);
+        make.centerY.equalTo(self.firstLanguageLabel);
+    }];
+    
+    [self.secondLanguageLabel mas_remakeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(self.selectLabel);
+        make.top.equalTo(self.firstLanguagePopUpButton.mas_bottom).offset(self.verticalPadding);
+    }];
+    [self.secondLanguagePopUpButton mas_remakeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(self.secondLanguageLabel.mas_right).offset(self.horizontalPadding);
+        make.centerY.equalTo(self.secondLanguageLabel);
+    }];
+    
     [self.autoGetSelectedTextLabel mas_remakeConstraints:^(MASConstraintMaker *make) {
         make.right.equalTo(self.selectLabel);
-        make.top.equalTo(self.separatorView.mas_bottom).offset(1.5 * self.verticalPadding);
+        make.top.equalTo(self.secondLanguagePopUpButton.mas_bottom).offset(1.5 * self.verticalPadding);
     }];
     [self.showQueryIconButton mas_remakeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(self.autoGetSelectedTextLabel.mas_right).offset(self.horizontalPadding);
@@ -588,12 +658,12 @@
     self.topmostView = self.inputLabel;
     self.bottommostView = self.hideMenuBarIconButton;
     
-    if ([EZLanguageManager isChineseFirstLanguage]) {
+    if ([EZLanguageManager.shared isSystemChineseFirstLanguage]) {
         self.leftmostView = self.adjustQueryIconPostionLabel;
         self.rightmostView = self.forceGetSelectedTextButton;
     }
     
-    if ([EZLanguageManager isEnglishFirstLanguage]) {
+    if ([EZLanguageManager.shared isSystemEnglishFirstLanguage]) {
         self.leftmostView = self.adjustQueryIconPostionLabel;
         self.rightmostView = self.forceGetSelectedTextButton;
     }
@@ -611,7 +681,7 @@
 }
 
 - (void)autoSelectTextButtonClicked:(NSButton *)sender {
-    EZConfiguration.shared.autoSelectText = sender.mm_isOn;
+    self.config.autoSelectText = sender.mm_isOn;
     
     if (sender.mm_isOn) {
         [self checkAppIsTrusted];
@@ -631,64 +701,64 @@
             } else {
                 sender.mm_isOn = NO;
             }
-            EZConfiguration.shared.forceAutoGetSelectedText = sender.mm_isOn;
+            self.config.forceAutoGetSelectedText = sender.mm_isOn;
         }];
     } else {
-        EZConfiguration.shared.forceAutoGetSelectedText = NO;
+        self.config.forceAutoGetSelectedText = NO;
     }
 }
 
 - (void)clickQueryButtonClicked:(NSButton *)sender {
-    EZConfiguration.shared.clickQuery = sender.mm_isOn;
+    self.config.clickQuery = sender.mm_isOn;
 }
 
 
 - (void)launchAtStartupButtonClicked:(NSButton *)sender {
-    EZConfiguration.shared.launchAtStartup = sender.mm_isOn;
+    self.config.launchAtStartup = sender.mm_isOn;
 }
 
 - (void)hideMainWindowButtonClicked:(NSButton *)sender {
-    EZConfiguration.shared.hideMainWindow = sender.mm_isOn;    
+    self.config.hideMainWindow = sender.mm_isOn;
 }
 
 - (void)autoQueryOCRTextButtonClicked:(NSButton *)sender {
-    EZConfiguration.shared.autoQueryOCRText = sender.mm_isOn;
+    self.config.autoQueryOCRText = sender.mm_isOn;
 }
 
 - (void)autoQuerySelectedTextButtonClicked:(NSButton *)sender {
-    EZConfiguration.shared.autoQuerySelectedText = sender.mm_isOn;
+    self.config.autoQuerySelectedText = sender.mm_isOn;
 }
 
 - (void)autoQueryPastedTextButtonClicked:(NSButton *)sender {
-    EZConfiguration.shared.autoQueryPastedText = sender.mm_isOn;
+    self.config.autoQueryPastedText = sender.mm_isOn;
 }
 
 - (void)autoPlayAudioButtonClicked:(NSButton *)sender {
-    EZConfiguration.shared.autoPlayAudio = sender.mm_isOn;
+    self.config.autoPlayAudio = sender.mm_isOn;
 }
 
 - (void)clearInputButtonClicked:(NSButton *)sender {
-    EZConfiguration.shared.clearInput = sender.mm_isOn;
+    self.config.clearInput = sender.mm_isOn;
 }
 
 - (void)autoCopySelectedTextButtonClicked:(NSButton *)sender {
-    EZConfiguration.shared.autoCopySelectedText = sender.mm_isOn;
+    self.config.autoCopySelectedText = sender.mm_isOn;
 }
 
 - (void)autoCopyOCRTextButtonClicked:(NSButton *)sender {
-    EZConfiguration.shared.autoCopyOCRText = sender.mm_isOn;
+    self.config.autoCopyOCRText = sender.mm_isOn;
 }
 
 - (void)autoCopyFirstTranslatedTextButtonClicked:(NSButton *)sender {
-    EZConfiguration.shared.autoCopyFirstTranslatedText = sender.mm_isOn;
+    self.config.autoCopyFirstTranslatedText = sender.mm_isOn;
 }
 
 - (void)showGoogleQuickLinkButtonClicked:(NSButton *)sender {
-    EZConfiguration.shared.showGoogleQuickLink = sender.mm_isOn;
+    self.config.showGoogleQuickLink = sender.mm_isOn;
 }
 
 - (void)showEudicQuickLinkButtonClicked:(NSButton *)sender {
-    EZConfiguration.shared.showEudicQuickLink = sender.mm_isOn;
+    self.config.showEudicQuickLink = sender.mm_isOn;
 }
 
 - (void)hideMenuBarIconButtonClicked:(NSButton *)sender {
@@ -706,31 +776,81 @@
             } else {
                 sender.mm_isOn = NO;
             }
-            EZConfiguration.shared.hideMenuBarIcon = sender.mm_isOn;
+            self.config.hideMenuBarIcon = sender.mm_isOn;
         }];
     } else {
-        EZConfiguration.shared.hideMenuBarIcon = NO;
+        self.config.hideMenuBarIcon = NO;
     }
 }
 
 - (void)fixedWindowPositionPopUpButtonClicked:(NSPopUpButton *)button {
     NSInteger selectedIndex = button.indexOfSelectedItem;
-    EZConfiguration.shared.fixedWindowPosition = selectedIndex;
+    self.config.fixedWindowPosition = selectedIndex;
 }
 
 - (void)languageDetectOptimizePopUpButtonClicked:(NSPopUpButton *)button {
     NSInteger selectedIndex = button.indexOfSelectedItem;
-    EZConfiguration.shared.languageDetectOptimize = selectedIndex;
+    self.config.languageDetectOptimize = selectedIndex;
 }
 
 - (void)adjustQueryIconPostionButtonClicked:(NSButton *)sender {
-    EZConfiguration.shared.adjustPopButtomOrigin = sender.mm_isOn;
+    self.config.adjustPopButtomOrigin = sender.mm_isOn;
 }
 
 - (void)disableEmptyCopyBeepButtonClicked:(NSButton *)sender {
-    EZConfiguration.shared.disableEmptyCopyBeep = sender.mm_isOn;
+    self.config.disableEmptyCopyBeep = sender.mm_isOn;
 }
 
+#pragma mark - Preferred Languages
+
+- (void)firstLangaugePopUpButtonClicked:(NSPopUpButton *)button {
+    NSInteger selectedIndex = button.indexOfSelectedItem;
+    EZLanguage language = EZLanguageManager.shared.allLanguageFlagDict.sortedKeys[selectedIndex];
+    self.config.firstLanguage = language;
+    
+    [self checkIfEqualFirstLanguage:YES];
+}
+- (void)secondLangaugePopUpButtonClicked:(NSPopUpButton *)button {
+    NSInteger selectedIndex = button.indexOfSelectedItem;
+    EZLanguage language = EZLanguageManager.shared.allLanguageFlagDict.sortedKeys[selectedIndex];
+    self.config.secondLanguage = language;
+    
+    [self checkIfEqualFirstLanguage:NO];
+}
+
+- (void)checkIfEqualFirstLanguage:(BOOL)fistLanguageFlag {
+    if ([self.config.firstLanguage isEqualToString:self.config.secondLanguage]) {
+        NSAlert *alert = [[NSAlert alloc] init];
+        [alert addButtonWithTitle:NSLocalizedString(@"ok", nil)];
+        
+        NSString *warningText = NSLocalizedString(@"equal_first_and_second_language", nil);
+        NSString *showingLanguage = [EZLanguageManager.shared showingLanguageName:self.config.firstLanguage];
+        alert.messageText = [NSString stringWithFormat:@"%@: %@", warningText, showingLanguage];
+        [alert beginSheetModalForWindow:[self window] completionHandler:^(NSModalResponse returnCode) {
+            if (returnCode == NSAlertFirstButtonReturn) {
+                // If isFistLanguage is YES, means we need to auto correct second language according to first language.
+                EZLanguage sourceLanguage = fistLanguageFlag ? self.config.firstLanguage : self.config.secondLanguage;
+                EZLanguage autoTargetLanguage = [EZLanguageManager.shared userTargetLanguageWithSourceLanguage:sourceLanguage];
+                
+                if (fistLanguageFlag) {
+                    self.config.secondLanguage = autoTargetLanguage;
+                } else {
+                    self.config.firstLanguage = autoTargetLanguage;
+                }
+                
+                [self updatePreferredLanguagesPopUpButton];
+            }
+        }];
+    }
+}
+
+- (void)updatePreferredLanguagesPopUpButton {
+    NSInteger firstLanguageIndex = [self.allLanguageDict.sortedKeys indexOfObject:EZLanguageManager.shared.userFirstLanguage];
+    [self.firstLanguagePopUpButton selectItemAtIndex:firstLanguageIndex];
+    
+    NSInteger secondLanguageIndex = [self.allLanguageDict.sortedKeys indexOfObject:EZLanguageManager.shared.userSecondLanguage];
+    [self.secondLanguagePopUpButton selectItemAtIndex:secondLanguageIndex];
+}
 
 #pragma mark - MASPreferencesViewController
 

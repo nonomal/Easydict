@@ -14,6 +14,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 static NSString *const EZQuickLinkButtonUpdateNotification = @"EZQuickLinkButtonUpdateNotification";
 
+static NSString *const EZIntelligentQueryModeKey = @"IntelligentQueryMode";
+
 typedef NS_ENUM(NSUInteger, EZLanguageDetectOptimize) {
     EZLanguageDetectOptimizeNone = 0,
     EZLanguageDetectOptimizeBaidu = 1,
@@ -21,6 +23,9 @@ typedef NS_ENUM(NSUInteger, EZLanguageDetectOptimize) {
 };
 
 @interface EZConfiguration : NSObject
+
+@property (nonatomic, copy) EZLanguage firstLanguage;
+@property (nonatomic, copy) EZLanguage secondLanguage;
 
 @property (nonatomic, copy) EZLanguage from;
 @property (nonatomic, copy) EZLanguage to;
@@ -49,12 +54,37 @@ typedef NS_ENUM(NSUInteger, EZLanguageDetectOptimize) {
 @property (nonatomic, assign) BOOL allowAnalytics;
 @property (nonatomic, assign) BOOL clearInput;
 
+/// Only use when showing NSOpenPanel to select disabled apps.
+@property (nonatomic, assign) BOOL disabledAutoSelect;
+
 
 + (instancetype)shared;
 + (void)destroySharedInstance;
 
 - (CGRect)windowFrameWithType:(EZWindowType)windowType;
 - (void)setWindowFrame:(CGRect)frame windowType:(EZWindowType)windowType;
+
+
+#pragma mark - Intelligent Query Mode
+- (void)setIntelligentQueryMode:(BOOL)enabled windowType:(EZWindowType)windowType;
+- (BOOL)intelligentQueryModeForWindowType:(EZWindowType)windowType;
+
+#pragma mark - Query Text Type of Service
+- (void)setQueryTextType:(EZQueryTextType)queryTextType serviceType:(EZServiceType)serviceType;
+- (EZQueryTextType)queryTextTypeForServiceType:(EZServiceType)serviceType;
+
+#pragma mark - Intelligent Query Text Type of Service
+- (void)setIntelligentQueryTextType:(EZQueryTextType)queryTextType serviceType:(EZServiceType)serviceType;
+- (EZQueryTextType)intelligentQueryTextTypeForServiceType:(EZServiceType)serviceType;
+
+
+#pragma mark - Beta
+@property (nonatomic, assign, readonly, getter=isBeta) BOOL beta;
+
+#pragma mark - Default TTS
+@property (nonatomic, copy, readonly) EZServiceType defaultTTSServiceType;
+
+- (void)enableBetaFeaturesIfNeeded;
 
 @end
 

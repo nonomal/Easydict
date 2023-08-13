@@ -14,6 +14,8 @@ static NSString *const kAllServiceTypesKey = @"kAllServiceTypesKey";
 static NSString *const kQueryCountKey = @"kQueryCountKey";
 static NSString *const kQueryCharacterCountKey = @"kQueryCharacterCountKey";
 
+static NSString *const kAppModelTriggerListKey = @"kAppModelTriggerListKey";
+
 @interface EZLocalStorage ()
 
 @end
@@ -25,7 +27,7 @@ static NSString *const kQueryCharacterCountKey = @"kQueryCharacterCountKey";
 static EZLocalStorage *_instance;
 
 + (instancetype)shared {
-    @synchronized (self) {
+    @synchronized(self) {
         if (!_instance) {
             _instance = [[super allocWithZone:NULL] init];
             [_instance setup];
@@ -44,7 +46,7 @@ static EZLocalStorage *_instance;
 
 // Init data, save all service info
 - (void)setup {
-    NSArray *allServiceTypes = [EZServiceTypes allServiceTypes];
+    NSArray *allServiceTypes = [EZServiceTypes.shared allServiceTypes];
 
     NSArray *allWindowTypes = @[ @(EZWindowTypeMini), @(EZWindowTypeFixed), @(EZWindowTypeMain) ];
     for (NSNumber *number in allWindowTypes) {
@@ -55,14 +57,18 @@ static EZLocalStorage *_instance;
                 serviceInfo = [[EZServiceInfo alloc] init];
                 serviceInfo.type = serviceType;
                 serviceInfo.enabled = YES;
-                
-                // Mini should keep mini, concise
+
+                // Mini type should keep concise.
                 if (windowType == EZWindowTypeMini) {
-                    if (!(serviceType == EZServiceTypeDeepL || serviceType == EZServiceTypeYoudao)) {
-                        serviceInfo.enabled = NO;
-                    }
+                    NSArray *defaultEnabledServices = @[
+                        EZServiceTypeOpenAI,
+                        EZServiceTypeDeepL,
+                        EZServiceTypeYoudao,
+                        EZServiceTypeGoogle,
+                    ];
+                    serviceInfo.enabled = [defaultEnabledServices containsObject:serviceType];
                 }
-                
+
                 // There is a very small probability that Volcano webView translator will crash.
                 if (serviceType != EZServiceTypeVolcano) {
                     serviceInfo.enabledQuery = YES;
@@ -75,13 +81,14 @@ static EZLocalStorage *_instance;
 
 - (NSArray<EZServiceType> *)allServiceTypes:(EZWindowType)windowType {
     NSString *allServiceTypesKey = [self serviceTypesKeyOfWindowType:windowType];
+    NSArray *allServiceTypes = EZServiceTypes.shared.allServiceTypes;
+    
     NSArray *allStoredServiceTypes = [[NSUserDefaults standardUserDefaults] objectForKey:allServiceTypesKey];
     if (!allStoredServiceTypes) {
-        allStoredServiceTypes = [EZServiceTypes allServiceTypes];
+        allStoredServiceTypes = allServiceTypes;
         [[NSUserDefaults standardUserDefaults] setObject:allStoredServiceTypes forKey:allServiceTypesKey];
     } else {
         NSMutableArray *array = [NSMutableArray arrayWithArray:allStoredServiceTypes];
-        NSArray *allServiceTypes = [EZServiceTypes allServiceTypes];
         if (allStoredServiceTypes.count != allServiceTypes.count) {
             for (EZServiceType type in allServiceTypes) {
                 if ([allStoredServiceTypes indexOfObject:type] == NSNotFound) {
@@ -100,7 +107,7 @@ static EZLocalStorage *_instance;
 }
 
 - (NSArray<EZQueryService *> *)allServices:(EZWindowType)windowType {
-    NSArray *allServices = [EZServiceTypes servicesFromTypes:[self allServiceTypes:windowType]];
+    NSArray *allServices = [EZServiceTypes.shared servicesFromTypes:[self allServiceTypes:windowType]];
     for (EZQueryService *service in allServices) {
         EZServiceInfo *serviceInfo = [self serviceInfoWithType:service.serviceType windowType:windowType];
         BOOL enabled = YES;
@@ -124,12 +131,12 @@ static EZLocalStorage *_instance;
 - (nullable EZServiceInfo *)serviceInfoWithType:(EZServiceType)type windowType:(EZWindowType)windowType {
     NSString *serviceInfoKey = [self keyForServiceType:type windowType:windowType];
     NSData *data = [[NSUserDefaults standardUserDefaults] objectForKey:serviceInfoKey];
-    
-    EZServiceInfo *serviceInfo = nil;    
+
+    EZServiceInfo *serviceInfo = nil;
     if (data) {
         serviceInfo = [EZServiceInfo mj_objectWithKeyValues:data];
     }
-    
+
     return serviceInfo;
 }
 
@@ -245,7 +252,7 @@ query count  | level | title
     return title;
 }
 
-#pragma mark -
+#pragma mark - Service type key
 
 - (NSString *)keyForServiceType:(EZServiceType)serviceType windowType:(EZWindowType)windowType {
     return [NSString stringWithFormat:@"%@-%@-%ld", kServiceInfoStorageKey, serviceType, windowType];
@@ -253,6 +260,29 @@ query count  | level | title
 
 - (NSString *)serviceTypesKeyOfWindowType:(EZWindowType)windowType {
     return [NSString stringWithFormat:@"%@-%ld", kAllServiceTypesKey, windowType];
+}
+
+#pragma mark - Disabled AppModel
+
+- (void)setSelectTextTypeAppModelList:(NSArray<EZAppModel *> *)selectTextAppModelList {
+    NSArray *dictArray = [EZAppModel mj_keyValuesArrayWithObjectArray:selectTextAppModelList];
+    [[NSUserDefaults standardUserDefaults] setObject:dictArray forKey:kAppModelTriggerListKey];
+}
+
+- (NSArray<EZAppModel *> *)selectTextTypeAppModelList {
+    NSArray *dictArray = [[NSUserDefaults standardUserDefaults] valueForKey:kAppModelTriggerListKey];
+    NSArray *appModels = [EZAppModel mj_objectArrayWithKeyValuesArray:dictArray] ?: [NSArray array];
+    
+    if (!dictArray) {
+        EZAppModel *keyChainApp = [[EZAppModel alloc] init];
+        keyChainApp.appBundleID = @"com.apple.keychainaccess";
+        keyChainApp.triggerType = EZTriggerTypeNone;
+        appModels = @[
+            keyChainApp,
+        ];
+    }
+    
+    return appModels;
 }
 
 @end

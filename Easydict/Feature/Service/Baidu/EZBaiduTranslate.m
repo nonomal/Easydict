@@ -11,6 +11,7 @@
 #import "EZBaiduTranslateResponse.h"
 #import "EZWebViewTranslator.h"
 #import "EZNetworkManager.h"
+#import "EZConfiguration.h"
 
 static NSString *const kBaiduTranslateURL = @"https://fanyi.baidu.com";
 
@@ -115,6 +116,20 @@ static NSString *const kBaiduTranslateURL = @"https://fanyi.baidu.com";
 
 - (EZServiceType)serviceType {
     return EZServiceTypeBaidu;
+}
+
+- (EZQueryTextType)queryTextType {
+    EZQueryTextType defaultType = EZQueryTextTypeDictionary | EZQueryTextTypeSentence | EZQueryTextTypeTranslation;
+    EZQueryTextType type = [EZConfiguration.shared queryTextTypeForServiceType:self.serviceType];
+    if (type == 0) {
+        type = defaultType;
+    }
+    return type;
+}
+
+- (EZQueryTextType)intelligentQueryTextType {
+    EZQueryTextType type = [EZConfiguration.shared intelligentQueryTextTypeForServiceType:self.serviceType];
+    return type;
 }
 
 - (NSString *)name {
@@ -323,7 +338,7 @@ static NSString *const kBaiduTranslateURL = @"https://fanyi.baidu.com";
     NSString *fromLang = ([from isEqualToString:EZLanguageAuto]) ? [self languageCodeForLanguage:EZLanguageEnglish] : [self languageCodeForLanguage:from];
     NSString *toLang = nil;
     if ([to isEqualToString:EZLanguageAuto]) {
-        toLang = [EZLanguageManager targetLanguageWithSourceLanguage:from];
+        toLang = [EZLanguageManager.shared userTargetLanguageWithSourceLanguage:from];
     } else {
         toLang = [self languageCodeForLanguage:to];
     }

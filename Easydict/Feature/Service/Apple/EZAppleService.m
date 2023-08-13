@@ -21,21 +21,35 @@ static NSString *const kParagraphBreakText = @"\n\n";
 static NSString *const kIndentationText = @"";
 
 static NSArray *const kAllowedCharactersInPoetryList = @[ @"《", @"》" ];
-static NSArray *const kDashCharacterList = @[ @"—", @"-", @"–" ];
 
 static CGFloat const kParagraphLineHeightRatio = 1.2;
 
 @interface VNRecognizedTextObservation (EZText)
-
-- (NSString *)firstText;
-
+@property (nonatomic, copy, readonly) NSString *firstText;
 @end
 
 @implementation VNRecognizedTextObservation (EZText)
-
 - (NSString *)firstText {
     NSString *text = [[self topCandidates:1] firstObject].string;
     return text;
+}
+@end
+
+@interface NSArray (VNRecognizedTextObservation)
+@property (nonatomic, copy, readonly) NSArray<NSString *> *recognizedTexts;
+@end
+
+@implementation NSArray (VNRecognizedTextObservation)
+
+- (NSArray<NSString *> *)recognizedTexts {
+    NSMutableArray *texts = [NSMutableArray array];
+    for (VNRecognizedTextObservation *observation in self) {
+        NSString *text = observation.firstText;
+        if (text) {
+            [texts addObject:text];
+        }
+    }
+    return texts;
 }
 
 @end
@@ -73,7 +87,6 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
 
 @property (nonatomic, strong) VNRecognizedTextObservation *maxLongLineTextObservation;
 @property (nonatomic, strong) VNRecognizedTextObservation *minXLineTextObservation;
-@property (nonatomic, strong) VNRecognizedTextObservation *maxCharactarLineTextObservation;
 
 @property (nonatomic, strong) NSImage *ocrImage;
 @property (nonatomic, assign) BOOL isPoetry;
@@ -131,7 +144,7 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
 }
 
 - (NSString *)name {
-    return NSLocalizedString(@"system_translate", nil);
+    return NSLocalizedString(@"apple_translate", nil);
 }
 
 - (MMOrderedDictionary *)supportLanguagesDictionary {
@@ -284,26 +297,6 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
     queryModel.autoQuery = YES;
     
     NSImage *image = queryModel.OCRImage;
-    NSArray *qrCodeTexts = [self detectQRCodeImage:image];
-    if (qrCodeTexts.count) {
-        NSString *text = [qrCodeTexts componentsJoinedByString:@"\n"];
-        
-        EZOCRResult *ocrResult = [[EZOCRResult alloc] init];
-        ocrResult.texts = qrCodeTexts;
-        ocrResult.mergedText = text;
-        ocrResult.raw = qrCodeTexts;
-        
-        EZLanguage language = [self detectText:text];
-        queryModel.detectedLanguage = language;
-        queryModel.autoQuery = NO;
-        
-        ocrResult.from = language;
-        ocrResult.confidence = 1.0;
-        
-        completion(ocrResult, nil);
-        return;
-    }
-    
     
     BOOL automaticallyDetectsLanguage = YES;
     BOOL hasSpecifiedLanguage = ![queryModel.queryFromLanguage isEqualToString:EZLanguageAuto];
@@ -315,7 +308,19 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
           language:queryModel.queryFromLanguage
         autoDetect:automaticallyDetectsLanguage
         completion:^(EZOCRResult *_Nullable ocrResult, NSError *_Nullable error) {
-        if (hasSpecifiedLanguage || error || ocrResult.confidence == 1.0) {
+        if (hasSpecifiedLanguage || ocrResult.confidence == 1.0 || error) {
+            /**
+             If there is only a QR code in the image, OCR will return error, then try to detect QRCode image.
+             If there is both text and a QR code in the image, the text is recognized first.
+             */
+            if (error) {
+                EZOCRResult *ocrResult = [self getOCRResultFromQRCodeImage:image];
+                if (ocrResult) {
+                    completion(ocrResult, nil);
+                    return;
+                }
+            }
+            
             queryModel.ocrConfidence = ocrResult.confidence;
             completion(ocrResult, error);
             return;
@@ -398,13 +403,13 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
         mostConfidentLanguage = EZLanguageEnglish;
     }
     
-    if ([EZLanguageManager isChineseLanguage:mostConfidentLanguage]) {
+    if ([EZLanguageManager.shared isChineseLanguage:mostConfidentLanguage]) {
         // Correct 勿 --> zh-Hant --> zh-Hans
         EZLanguage chineseLanguage = [self chineseLanguageTypeOfText:text];
         return chineseLanguage;
     } else {
         // Try to detect Chinese language.
-        if ([EZLanguageManager isChineseFirstLanguage]) {
+        if ([EZLanguageManager.shared isUserChineseFirstLanguage]) {
             // test: 開門 open, 使用1 OCR --> 英文, --> 中文
             EZLanguage chineseLanguage = [self chineseLanguageTypeOfText:text fromLanguage:mostConfidentLanguage];
             if (![chineseLanguage isEqualToString:EZLanguageAuto]) {
@@ -447,7 +452,7 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
     
     // !!!: All numbers will be return empty dict @{}: 729
     if (languageProbabilityDict.count == 0) {
-        EZLanguage firstLanguage = [EZLanguageManager firstLanguage];
+        EZLanguage firstLanguage = [EZLanguageManager.shared userFirstLanguage];
         dominantLanguage = [self appleLanguageFromLanguageEnum:firstLanguage];
         languageProbabilityDict = @{dominantLanguage : @(0)};
     }
@@ -455,7 +460,7 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
     CFAbsoluteTime endTime = CFAbsoluteTimeGetCurrent();
     
     if (logFlag) {
-        NSLog(@"system probabilities:: %@", languageProbabilityDict);
+        NSLog(@"system probabilities: %@", languageProbabilityDict);
         NSLog(@"dominant Language: %@", dominantLanguage);
         NSLog(@"detect cost: %.1f ms", (endTime - startTime) * 1000); // ~4ms
     }
@@ -480,7 +485,7 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
     NSDictionary *customHints = @{
         NLLanguageEnglish : @(4.5),
         NLLanguageSimplifiedChinese : @(2.0),
-        NLLanguageTraditionalChinese : @(0.4),
+        NLLanguageTraditionalChinese : @(0.6), // 電池
         NLLanguageJapanese : @(0.25),
         NLLanguageFrench : @(0.2), // const, ex, delimiter, proposition
         NLLanguageKorean : @(0.2),
@@ -504,7 +509,7 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
 }
 
 - (NSDictionary<EZLanguage, NSNumber *> *)userPreferredLanguageProbabilities {
-    NSArray *preferredLanguages = [EZLanguageManager systemPreferredLanguages];
+    NSArray *preferredLanguages = [EZLanguageManager.shared preferredLanguages];
     
     // TODO: need to test more data. Maybe need to write a unit test.
     
@@ -527,7 +532,7 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
             weight = 0.1;
         }
         if ([language isEqualToString:EZLanguageEnglish]) {
-            if (![EZLanguageManager isEnglishFirstLanguage]) {
+            if (![EZLanguageManager.shared isUserChineseFirstLanguage]) {
                 weight += 0.2;
             } else {
                 weight += 0.1;
@@ -598,7 +603,7 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
         MMOrderedDictionary *appleOCRLanguageDict = [self ocrLanguageDictionary];
         NSArray<EZLanguage> *defaultRecognitionLanguages = [appleOCRLanguageDict sortedKeys];
         NSArray<EZLanguage> *recognitionLanguages = [self updateOCRRecognitionLanguages:defaultRecognitionLanguages
-                                                                     preferredLanguages:[EZLanguageManager systemPreferredLanguages]];
+                                                                     preferredLanguages:[EZLanguageManager.shared preferredLanguages]];
         
         VNImageRequestHandler *requestHandler = [[VNImageRequestHandler alloc] initWithCGImage:cgImage options:@{}];
         VNRecognizeTextRequest *request = [[VNRecognizeTextRequest alloc] initWithCompletionHandler:^(VNRequest *_Nonnull request, NSError *_Nullable error) {
@@ -692,8 +697,8 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
      */
     if ([preferredLanguages.firstObject isEqualToString:EZLanguageEnglish]) {
         // iterate all system preferred languages, if contains Chinese, move Chinese to the first priority.
-        for (EZLanguage language in [EZLanguageManager systemPreferredLanguages]) {
-            if ([EZLanguageManager isChineseLanguage:language]) {
+        for (EZLanguage language in [EZLanguageManager.shared preferredLanguages]) {
+            if ([EZLanguageManager.shared isChineseLanguage:language]) {
                 [newRecognitionLanguages removeObject:language];
                 [newRecognitionLanguages insertObject:language atIndex:0];
                 break;
@@ -849,6 +854,28 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
     return nil;
 }
 
+- (nullable EZOCRResult *)getOCRResultFromQRCodeImage:(NSImage *)image {
+    NSArray *qrCodeTexts = [self detectQRCodeImage:image];
+    if (qrCodeTexts.count) {
+        NSString *text = [qrCodeTexts componentsJoinedByString:@"\n"];
+
+        EZOCRResult *ocrResult = [[EZOCRResult alloc] init];
+        ocrResult.texts = qrCodeTexts;
+        ocrResult.mergedText = text;
+        ocrResult.raw = qrCodeTexts;
+
+        EZLanguage language = [self detectText:text];
+        self.queryModel.detectedLanguage = language;
+        self.queryModel.autoQuery = NO;
+
+        ocrResult.from = language;
+        ocrResult.confidence = 1.0;
+
+        return ocrResult;
+    }
+    return nil;
+}
+
 
 #pragma mark - Join OCR text array
 
@@ -870,41 +897,21 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
     CGFloat minX = MAXFLOAT;
     CGFloat maxLengthOfLine = 0;
     CGFloat minLengthOfLine = MAXFLOAT;
-    NSInteger punctuationMarkCount = 0;
-    NSInteger totalCharCount = 0;
-    CGFloat charCountPerLine = 0;
-    CGFloat maxCharCount = 0;
-    
-    NSMutableArray *lineLengthArray = [NSMutableArray array];
     
     NSMutableArray *recognizedStrings = [NSMutableArray array];
-    NSArray<VNRecognizedTextObservation *> *observationResults = request.results;
-    NSInteger lineCount = observationResults.count;
+    NSArray<VNRecognizedTextObservation *> *textObservations = request.results;
+    NSInteger lineCount = textObservations.count;
     
     NSInteger lineSpacingCount = 0;
     
     for (int i = 0; i < lineCount; i++) {
-        VNRecognizedTextObservation *textObservation = observationResults[i];
+        VNRecognizedTextObservation *textObservation = textObservations[i];
         VNRecognizedText *recognizedText = [[textObservation topCandidates:1] firstObject];
         NSString *recognizedString = recognizedText.string;
         [recognizedStrings addObject:recognizedString];
         
-        // iterate string to check if has punctuation mark.
-        for (NSInteger i = 0; i < recognizedString.length; i++) {
-            totalCharCount += 1;
-            NSString *charString = [recognizedString substringWithRange:NSMakeRange(i, 1)];
-            NSArray *allowedCharArray = [kAllowedCharactersInPoetryList arrayByAddingObjectsFromArray:kDashCharacterList];
-            BOOL isChar = [self isPunctuationChar:charString excludeCharacters:allowedCharArray];
-            if (isChar) {
-                punctuationMarkCount += 1;
-            }
-        }
-        
         CGRect boundingBox = textObservation.boundingBox;
         NSLog(@"%@, %@", @(boundingBox), recognizedString);
-        
-        CGFloat lineLength = boundingBox.size.width;
-        [lineLengthArray addObject:@(lineLength)];
         
         CGFloat lineHeight = boundingBox.size.height;
         totalLineHeight += lineHeight;
@@ -913,7 +920,7 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
         }
         
         if (i > 0) {
-            VNRecognizedTextObservation *prevObservation = observationResults[i - 1];
+            VNRecognizedTextObservation *prevObservation = textObservations[i - 1];
             CGRect prevBoundingBox = prevObservation.boundingBox;
             
             // !!!: deltaY may be < 0, means the [OCR] line frame is overlapped.
@@ -932,11 +939,6 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
             if (deltaY > 0 && deltaY < minPositiveLineSpacing) {
                 minPositiveLineSpacing = deltaY;
             }
-        }
-        
-        if (recognizedString.length > maxCharCount) {
-            maxCharCount = recognizedString.length;
-            self.maxCharactarLineTextObservation = textObservation;
         }
         
         CGFloat x = boundingBox.origin.x;
@@ -965,10 +967,7 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
     self.language = language;
     self.minX = minX;
     self.maxLineLength = maxLengthOfLine;
-    
-    CGFloat punctuationMarkRate = punctuationMarkCount / (CGFloat)totalCharCount;
-    charCountPerLine = totalCharCount / (CGFloat)lineCount;
-    
+    self.minLineHeight = minLineHeight;
     
     self.averageLineHeight = averageLineHeight;
     self.averageLineSpacing = averageLineSpacing;
@@ -982,24 +981,23 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
     
     
     NSArray<NSString *> *stringArray = ocrResult.texts;
+    NSLog(@"%@", textObservations);
     NSLog(@"ocr stringArray (%@): %@", ocrResult.from, stringArray);
     
     
-    BOOL isPoetry = [self isPoetryOfTextArray:recognizedStrings
-                              lineLengthArray:lineLengthArray
-                              maxLengthOfLine:maxLengthOfLine
-                         punctuationMarkCount:punctuationMarkCount
-                          punctuationMarkRate:punctuationMarkRate
-                                     language:language];
+    BOOL isPoetry = [self isPoetryOftextObservations:textObservations];
     NSLog(@"isPoetry: %d", isPoetry);
     self.isPoetry = isPoetry;
     
     CGFloat confidence = 0;
     NSMutableString *mergedText = [NSMutableString string];
     
+    // !!!: Need to Sort textObservations
+    textObservations = [self sortedTextObservations:textObservations];
+    NSLog(@"%@", textObservations.recognizedTexts);
     
     for (int i = 0; i < lineCount; i++) {
-        VNRecognizedTextObservation *textObservation = observationResults[i];
+        VNRecognizedTextObservation *textObservation = textObservations[i];
         VNRecognizedText *recognizedText = [[textObservation topCandidates:1] firstObject];
         confidence += recognizedText.confidence;
         
@@ -1031,14 +1029,12 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
         // 如果 i 不是第一个元素，且前一个元素的 boundingBox 的 minY 值大于当前元素的 maxY 值，则认为中间有换行。
         
         if (i > 0) {
-            VNRecognizedTextObservation *prevTextObservation = observationResults[i - 1];
+            VNRecognizedTextObservation *prevTextObservation = textObservations[i - 1];
             CGRect prevBoundingBox = prevTextObservation.boundingBox;
             
             // !!!: deltaY may be < 0
             CGFloat deltaY = prevBoundingBox.origin.y - (boundingBox.origin.y + boundingBox.size.height);
             CGFloat deltaX = boundingBox.origin.x - (prevBoundingBox.origin.x + prevBoundingBox.size.width);
-            
-            BOOL needLineBreak = isPoetry;
             
             // Note that line spacing is inaccurate, sometimes it's too small 😢
             BOOL isNewParagraph = NO;
@@ -1081,18 +1077,10 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
                 if (isNeedRemoveLastDashOfText) {
                     mergedText = [mergedText substringToIndex:mergedText.length - 1].mutableCopy;
                 }
-            } else if (isNewParagraph) {
+            } else if (isNewParagraph || isNewLine) {
                 joinedString = [self joinedStringOfTextObservation:textObservation
                                                prevTextObservation:prevTextObservation
                                                     isNewParagraph:isNewParagraph];
-            } else if (isNewLine) {
-                if (needLineBreak) {
-                    joinedString = kLineBreakText;
-                } else {
-                    joinedString = [self joinedStringOfTextObservation:textObservation
-                                                   prevTextObservation:prevTextObservation
-                                                        isNewParagraph:isNewParagraph];
-                }
             } else {
                 joinedString = @" "; // if the same line, just join two texts
             }
@@ -1125,65 +1113,88 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
     NSLog(@"ocr text: %@(%.2f): %@", ocrResult.from, ocrResult.confidence, showMergedText);
 }
 
-- (BOOL)isPoetryOfTextArray:(NSArray<NSString *> *)textArray
-            lineLengthArray:(NSArray<NSNumber *> *)lineLengthArray
-            maxLengthOfLine:(CGFloat)maxLengthOfLine
-       punctuationMarkCount:(NSInteger)punctuationMarkCount
-        punctuationMarkRate:(CGFloat)punctuationMarkRate
-                   language:(EZLanguage)language {
-    NSInteger shortLineCount = 0;
-    NSInteger longLineCount = 0;
-    CGFloat minLengthOfLine = CGFLOAT_MAX;
+/// Sort textObservations by textObservation.boundingBox.origin.y
+- (NSArray<VNRecognizedTextObservation *> *)sortedTextObservations:(NSArray<VNRecognizedTextObservation *> *)textObservations {
+    /**
+     NSRect: {{0.07716049382716049, 0.51535836177474403}, {0.87345679012345678, 0.085324232081911311}}, 梦入江南烟水路，行尽江南，不与离人遇。睡里消魂无说处，觉来惆怅
+     NSRect: {{0.021604938271604937, 0.37201365187713309}, {0.11111111111111112, 0.078498293515358419}}, 消魂误。
+     NSRect: {{0.023148148148148147, 0.08191126279863481}, {0.10956790123456792, 0.085324232081911311}}, 秦筝柱。
+     NSRect: {{0.075617283950617287, 0.22525597269624575}, {0.87654320987654322, 0.0853242320819112}}, 欲尽此情书尺素。浮雁沉鱼，终了无凭据。却倚缓弦歌别绪，断肠移破
+     */
+    NSArray *sortedTextObservations = [textObservations sortedArrayUsingComparator:^NSComparisonResult(VNRecognizedTextObservation *obj1, VNRecognizedTextObservation *obj2) {
+        CGRect boundingBox1 = obj1.boundingBox;
+        CGRect boundingBox2 = obj2.boundingBox;
+        
+        CGFloat y1 = boundingBox1.origin.y;
+        CGFloat y2 = boundingBox2.origin.y;
+        
+        if ((y1 - y2) / self.minLineHeight > 0.8)  {
+            return NSOrderedAscending; // Next line
+        } else {
+            return NSOrderedDescending;
+        }
+    }];
     
-    CGFloat lineCount = lineLengthArray.count;
+    return sortedTextObservations;
+}
+
+/// Check if texts is a poetry.
+- (BOOL)isPoetryOftextObservations:(NSArray<VNRecognizedTextObservation *> *)textObservations {
+    CGFloat lineCount = textObservations.count;
+    NSInteger longLineCount = 0;
     
     NSInteger totalCharCount = 0;
     CGFloat charCountPerLine = 0;
+    NSInteger punctuationMarkCount = 0;
+    NSInteger totalWordCount = 0;
+    NSInteger wordCountPerLine = 0;
     
-    /**
-     Egress bandwidth overconsump-
-     tion
-     
-     not poetry
-     */
-    for (int i = 0; i < lineCount; i++) {
-        NSString *text = textArray[i];
-        totalCharCount += text.length;
-        
-        //        if (i < lineCount - 1) {
-        //            NSString *nextText = textArray[i + 1];
-        //            CGFloat lineLength = lineLengthArray[i].floatValue;
-        //            BOOL isLongLastDashChar = [self isNeedHandleLastDashOfText:text
-        //                                                              nextText:nextText
-        //                                                            lineLength:lineLength
-        //                                                       maxLengthOfLine:maxLengthOfLine];
-        //            if (isLongLastDashChar) {
-        //                punctuationMarkCount++;
-        //            }
-        //        }
-    }
+    BOOL isAllEndPunctuationChar = YES;
     
-    charCountPerLine = totalCharCount / lineCount;
-    
-    for (NSNumber *number in lineLengthArray) {
-        CGFloat length = number.floatValue;
-        if (length > maxLengthOfLine) {
-            maxLengthOfLine = length;
-        }
-        if (length < minLengthOfLine) {
-            minLengthOfLine = length;
-        }
-        
-        BOOL isShortLine = [self isShortLineLength:length maxLineLength:maxLengthOfLine];
-        if (isShortLine) {
-            shortLineCount += 1;
-        }
-        
-        BOOL isLongLine = [self isLongLineLength:length maxLineLength:maxLengthOfLine];
+    for (VNRecognizedTextObservation *textObservation in textObservations) {
+        BOOL isLongLine = [self isLongTextObservation:textObservation];
         if (isLongLine) {
             longLineCount += 1;
         }
+        
+        NSString *text = [textObservation firstText];
+        totalCharCount += text.length;
+        totalWordCount += [EZTextWordUtils wordCount:text];
+        
+        NSInteger punctuationMarkCountOfLine = 0;
+        
+        // iterate string to check if has punctuation mark.
+        for (NSInteger i = 0; i < text.length; i++) {
+            NSString *charString = [text substringWithRange:NSMakeRange(i, 1)];
+            NSArray *allowedCharArray = [kAllowedCharactersInPoetryList arrayByAddingObjectsFromArray:EZDashCharacterList];
+            BOOL isChar = [self isPunctuationChar:charString excludeCharacters:allowedCharArray];
+            if (isChar) {
+                punctuationMarkCountOfLine += 1;
+            }
+            
+            BOOL isEndPunctuationChar = [text hasEndPunctuationSuffix];
+            if (!isEndPunctuationChar) {
+                isAllEndPunctuationChar = NO;
+            }
+            
+            /**
+             Cannot be treated as poetry, cannot join with '\n'
+             
+             　　 京洛风流绝代人，因何风絮落溪津。笼鞋浅出鸦头袜，知是凌波
+             　缥缈身。
+             　　 红乍笑，绿长颦，与谁同度可怜春。鸳鸯独宿何曾惯，化作西楼
+             　一缕云。
+             */
+            if (punctuationMarkCountOfLine >= 3 && !isEndPunctuationChar) {
+                return NO;
+            }
+        }
+        
+        punctuationMarkCount += punctuationMarkCountOfLine;
     }
+    
+    charCountPerLine = totalCharCount / lineCount;
+    wordCountPerLine = totalWordCount / lineCount;
     
     CGFloat numberOfPunctuationMarksPerLine = punctuationMarkCount / lineCount;
     
@@ -1198,51 +1209,44 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
         return NO;
     }
     
-    BOOL isChinese = [EZLanguageManager isChineseLanguage:language];
-    if (isChinese) {
-        CGFloat maxCharCountPerLineOfPoetry = 40; // 碧云冉冉蘅皋暮，彩笔新题断肠句。试问闲愁都几许？一川烟草，满城风絮，梅子黄时雨。
-        if (lineCount > 2) {
-            maxCharCountPerLineOfPoetry = 16; // 永忆江湖归白发，欲回天地入扁舟。
-        }
-        
-        BOOL isAveragePoetryLength = charCountPerLine <= maxCharCountPerLineOfPoetry;
-        
-        
-        BOOL isEqualLength = [self isEqualLength:maxLengthOfLine comparedLength:minLengthOfLine];
-        if (isEqualLength && isAveragePoetryLength) {
-            return YES;
-        }
-        
-        if (isAveragePoetryLength && lineCount >= 4 && numberOfPunctuationMarksPerLine <= 2) {
-            return YES;
-        }
-    }
-    
     // If average number of punctuation marks per line is greater than 2, then it is not poetry.
     if (numberOfPunctuationMarksPerLine > 2) {
         return NO;
     }
     
     if (punctuationMarkCount == 0) {
+        /**
+         Introducing English as the
+         New Programming Language
+         for Apache Spark
+         */
+        
+        if (wordCountPerLine >= 5) {
+            return YES;
+        }
+    }
+    
+    /**
+     Works smarter.
+      Plays harder.
+      Goes further.
+     */
+    if (isAllEndPunctuationChar) {
         return YES;
     }
     
-    if (lineCount >= 6 && (numberOfPunctuationMarksPerLine < 1 / 4) && (punctuationMarkRate < 0.04)) {
-        return YES;
-    }
-    
-    
-    BOOL tooManyLongLine = longLineCount >= lineCount * 0.8;
+    /**
+     Should >= 0.5, especially two lines.
+     
+     这首诗以白描手法写江南农村初夏时节的田野风光和农忙景象，
+     前两句描绘自然景物
+     */
+    BOOL tooManyLongLine = longLineCount / lineCount >= 0.5;
     if (tooManyLongLine) {
         return NO;
     }
     
-    BOOL tooManyShortLine = shortLineCount >= lineCount * 0.8;
-    if (tooManyShortLine) {
-        return YES;
-    }
-    
-    return NO;
+    return YES;
 }
 
 /// Get joined string of text, according to its last char.
@@ -1259,6 +1263,9 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
     // Note: sometimes OCR is incorrect, so [.] may be recognized as [,]
     BOOL isPrevEndPunctuationChar = [prevText hasEndPunctuationSuffix];
     
+    NSString *text = [textObservation firstText];
+    BOOL isEndPunctuationChar = [text hasEndPunctuationSuffix];
+    
     BOOL isBigLineSpacing = [self isBigSpacingLineOfTextObservation:textObservation
                                                 prevTextObservation:prevTextObservation
                                         greaterThanLineSpacingRatio:2.1
@@ -1269,17 +1276,22 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
     
     BOOL isPrevLongText = [self isLongTextObservation:prevTextObservation];
     
+    BOOL isEqualChineseText = [self isEqualChineseTextObservation:textObservation prevTextObservation:prevTextObservation];
+    
+    BOOL isPrevList = [prevText isListTypeFirstWord];
+    BOOL isList = [text isListTypeFirstWord];
+
     // TODO: Maybe we need to refactor it, each indented paragraph is treated separately, instead of treating them together with the longest text line.
     
     if (hasIndentation) {
         BOOL isEqualX = [self isEqualXOfTextObservation:textObservation prevTextObservation:prevTextObservation];
-
+        
         CGFloat lineX = CGRectGetMinX(textObservation.boundingBox);
         CGFloat prevLineX = CGRectGetMinX(prevTextObservation.boundingBox);
         CGFloat dx = lineX - prevLineX;
         
         if (hasPrevIndentation) {
-            if (isBigLineSpacing && !isPrevLongText) {
+            if (isBigLineSpacing && !isPrevLongText && !isPrevList && !isList) {
                 isNewParagraph = YES;
             }
             
@@ -1302,12 +1314,16 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
             BOOL isEqualLineMaxX = [self isRatioGreaterThan:0.95 value1:lineMaxX value2:prevLineMaxX];
             
             BOOL isEqualInnerTwoLine = isEqualX && isEqualLineMaxX;
-
+            
             if (isEqualInnerTwoLine) {
                 if (isPrevLessHalfShortLine) {
                     needLineBreak = YES;
                 } else {
-                    needLineBreak = NO;
+                    if (isEqualChineseText) {
+                        needLineBreak = YES;
+                    } else {
+                        needLineBreak = NO;
+                    }
                 }
             } else {
                 if (isPrevLongText) {
@@ -1315,8 +1331,8 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
                         needLineBreak = YES;
                     } else {
                         /**
-                                V. SECURITY CHALLENGES AND OPPORTUNITIES
-                            In the following, we discuss existing security challenges
+                         V. SECURITY CHALLENGES AND OPPORTUNITIES
+                         In the following, we discuss existing security challenges
                          and shed light on possible security opportunities and research
                          */
                         if (!isEqualX && dx < 0) {
@@ -1327,7 +1343,7 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
                     }
                 } else {
                     if (isPrevEndPunctuationChar) {
-                        if (!isEqualX) {
+                        if (!isEqualX && !isList) {
                             isNewParagraph = YES;
                         } else {
                             needLineBreak = YES;
@@ -1346,18 +1362,18 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
             /**
              当您发现严重的崩溃问题后，通常推荐发布一个新的版本来修复该问题。这样做有以下几
              个原因：
-
+             
              1. 保持版本控制：通过发布一个新版本，您可以清晰地记录修复了哪些问题。这对于用
-                户和开发团队来说都是透明和易于管理的。
+             户和开发团队来说都是透明和易于管理的。
              2. 便于用户更新：通过发布新版本，您可以通知用户更新应用程序以修复问题。这样，
-                用户可以轻松地通过应用商店或更新机制获取到修复后的版本。
+             用户可以轻松地通过应用商店或更新机制获取到修复后的版本。
              
              The problem with this solution is that the fate of  the  entire  money  system depends  on  the
              company running the mint, with every transaction having to go through them, just like a bank.
-                We need a way for the payee to know that the previous owners  did  not  sign   any   earlier
+             We need a way for the payee to know that the previous owners  did  not  sign   any   earlier
              transactions.
              */
-
+            
             if (isPrevLongText) {
                 if (isPrevEndPunctuationChar) {
                     isNewParagraph = YES;
@@ -1400,11 +1416,23 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
                 if (hasPrevIndentation) {
                     needLineBreak = NO;
                 }
+                
+                /**
+                 人绕湘皋月坠时。斜横花树小，浸愁漪。一春幽事有谁知。东风冷、香远茜裙归。
+                 鸥去昔游非。遥怜花可可，梦依依。九疑云杳断魂啼。相思血，都沁绿筠枝。
+                 */
+                if (isPrevEndPunctuationChar && isEndPunctuationChar) {
+                    needLineBreak = YES;
+                }
             } else {
                 needLineBreak = YES;
                 if (hasPrevIndentation && !isPrevEndPunctuationChar) {
                     isNewParagraph = YES;
                 }
+            }
+            
+            if (self.isPoetry) {
+                needLineBreak = YES;
             }
         }
         
@@ -1418,16 +1446,18 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
          
          —— 宋 · 姜夔
          */
-        if ([EZLanguageManager isChineseLanguage:self.language]) {
-            BOOL isEqualLength = [self isEqualCharacterLengthTextObservation:textObservation prevTextObservation:prevTextObservation];
-            if (isPrevLongText && isEqualLength) {
-                needLineBreak = YES;
-                
-                if (isBigLineSpacing) {
-                    isNewParagraph = YES;
-                }
+        if (isEqualChineseText) {
+            needLineBreak = YES;
+            if (isBigLineSpacing) {
+                isNewParagraph = YES;
             }
         }
+    }
+    
+    if (isPrevList && isList) {
+        needLineBreak = YES;
+
+        isNewParagraph = isBigLineSpacing;
     }
     
     if (isNewParagraph) {
@@ -1471,6 +1501,16 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
     return NO;
 }
 
+- (BOOL)isEqualChineseTextObservation:(VNRecognizedTextObservation *)textObservation
+                  prevTextObservation:(VNRecognizedTextObservation *)prevTextObservation {
+    BOOL isEqualLength = [self isEqualCharacterLengthTextObservation:textObservation prevTextObservation:prevTextObservation];
+    if (isEqualLength && [EZLanguageManager.shared isChineseLanguage:self.language]) {
+        return YES;
+    }
+    return NO;
+}
+
+
 // TODO: Some text has large line spacing, which can lead to misjudgments.
 - (BOOL)isBigSpacingLineOfTextObservation:(VNRecognizedTextObservation *)textObservation
                       prevTextObservation:(VNRecognizedTextObservation *)prevTextObservation
@@ -1508,7 +1548,7 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
         averagerLineHeightRatio > greaterThanLineHeightRatio ||
         (lineHeightRatio / lineHeightRatioThreshold > minLineHeightRatio && averagerLineHeightRatio / greaterThanLineHeightRatio > 0.75)) {
         isBigLineSpacing = YES;
-//        NSLog(@"is big line spacing: %@", textObservation.firstText);
+        //        NSLog(@"is big line spacing: %@", textObservation.firstText);
     }
     return isBigLineSpacing;
 }
@@ -1612,31 +1652,17 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
 
 - (BOOL)isLongTextObservation:(VNRecognizedTextObservation *)textObservation
       comparedTextObservation:(VNRecognizedTextObservation *)comparedTextObservation {
-    /**
-     test data:
-     
-     What is needed is an electronic
-     payment system based on
-     cryptographic
-     
-     image width: 500, last white spaces deltaX: 0.3, cryptographic
-     
-     difference = 500 * 0.32 = 160
-     
-     image_width * (maxLineX - lineX) < difference
-     */
-    
     // Two Chinese words length
-    CGFloat threshold = 60;
+    CGFloat threshold = 80;
     BOOL isEnglishTypeLanguage = [self isLanguageWordsNeedSpace:self.language];
     if (isEnglishTypeLanguage) {
-        threshold = 165; // should be a little bigger, add a white space width.
+        threshold = 230; // This value is related to the font size, take the average, and a bit larger.
     }
     
     CGFloat dx = CGRectGetMaxX(comparedTextObservation.boundingBox) - CGRectGetMaxX(textObservation.boundingBox);
     CGFloat maxLength = self.ocrImage.size.width * self.maxLineLength;
     CGFloat difference = maxLength * dx;
-
+    
     if (difference < threshold) {
         return YES;
     }
@@ -1651,7 +1677,7 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
     }
     
     NSString *prevLastChar = prevText.lastChar;
-    BOOL isPrevLastDashChar = [kDashCharacterList containsObject:prevLastChar];
+    BOOL isPrevLastDashChar = [EZDashCharacterList containsObject:prevLastChar];
     if (isPrevLastDashChar) {
         NSString *removedPrevDashText = [prevText substringToIndex:prevText.length - 1].mutableCopy;
         NSString *lastWord = [removedPrevDashText lastWord];
@@ -1697,7 +1723,7 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
 - (BOOL)isPoetryLineCharactersCount:(NSInteger)charactersCount language:(EZLanguage)language {
     BOOL isPoetry = NO;
     NSInteger charCountPerLineOfPoetry = 50;
-    if ([EZLanguageManager isChineseLanguage:language]) {
+    if ([EZLanguageManager.shared isChineseLanguage:language]) {
         charCountPerLineOfPoetry = 40;
     }
     
@@ -1724,7 +1750,7 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
 
 - (nullable NSString *)voiceIdentifierFromLanguage:(EZLanguage)language {
     NSString *voiceIdentifier = nil;
-    EZLanguageModel *languageModel = [EZLanguageManager languageModelFromLanguage:language];
+    EZLanguageModel *languageModel = [EZLanguageManager.shared languageModelFromLanguage:language];
     NSString *localeIdentifier = languageModel.localeIdentifier;
     
     NSArray *availableVoices = [NSSpeechSynthesizer availableVoices];
@@ -1813,7 +1839,7 @@ static CGFloat const kParagraphLineHeightRatio = 1.2;
 /// Check if text is Chinese.
 - (BOOL)isChineseText:(NSString *)text {
     EZLanguage language = [self appleDetectTextLanguage:text];
-    if ([EZLanguageManager isChineseLanguage:language]) {
+    if ([EZLanguageManager.shared isChineseLanguage:language]) {
         return YES;
     }
     return NO;
